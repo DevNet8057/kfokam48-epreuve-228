@@ -278,7 +278,13 @@ paths:
                     nom: { type: string }
                     presences: { type: integer }
                     exercicesDeposes: { type: integer }
-                    moyenne: { type: number, nullable: true }
+                    moyenne:
+                      description: >-
+                        (C2, remplace Q6) Moyenne des notes par exercice — un exercice avec une
+                        seule note rendue sur deux compte pour sa valeur provisoire — puis moyenne
+                        des exercices. null si aucune note.
+                      type: number
+                      nullable: true
                     relecturesEnAttente: { type: integer }
                     detailPresences:
                       description: "Ajouté (H11)"
