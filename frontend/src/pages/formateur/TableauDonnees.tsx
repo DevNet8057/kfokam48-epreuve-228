@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Spin, Table, Tag, Tooltip } from "antd";
+import { Alert, Button, Space, Spin, Table, Tag, Tooltip, Typography } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
 import { api, LigneTableau } from "../../api/client";
 import { ErreurApi } from "../../api/erreurApi";
+
+const { Text } = Typography;
+
+const INTERVALLE_RAFRAICHISSEMENT_MS = 5000;
 
 interface Props {
   promotionId: number;
 }
 
 /**
- * BUG K48-26 (issue #39) : un seul chargement au montage, jamais de rafraîchissement ensuite.
- * Une présence enregistrée après ce chargement semble "perdue" jusqu'à un remontage du composant.
+ * Corrige K48-26 (issue #39) : le tableau se rafraîchit automatiquement (toutes les 5 s) et
+ * propose un bouton « Actualiser », pour ne jamais donner l'impression qu'une présence a été
+ * perdue alors qu'elle est juste arrivée après le dernier chargement.
  */
 export function TableauDonnees({ promotionId }: Props) {
   const [lignes, setLignes] = useState<LigneTableau[] | null>(null);
@@ -28,6 +34,9 @@ export function TableauDonnees({ promotionId }: Props) {
   useEffect(() => {
     setChargement(true);
     charger().finally(() => setChargement(false));
+
+    const intervalle = setInterval(charger, INTERVALLE_RAFRAICHISSEMENT_MS);
+    return () => clearInterval(intervalle);
   }, [charger]);
 
   const colonnes = [
@@ -61,6 +70,12 @@ export function TableauDonnees({ promotionId }: Props) {
 
   return (
     <>
+      <Space style={{ marginBottom: 16 }}>
+        <Button icon={<ReloadOutlined />} onClick={charger} loading={chargement}>
+          Actualiser
+        </Button>
+        <Text type="secondary">Mise à jour automatique toutes les 5 secondes</Text>
+      </Space>
       {erreur && <Alert type="error" message={erreur} showIcon style={{ marginBottom: 16 }} />}
       {chargement && lignes === null && <Spin />}
       {lignes !== null && (
