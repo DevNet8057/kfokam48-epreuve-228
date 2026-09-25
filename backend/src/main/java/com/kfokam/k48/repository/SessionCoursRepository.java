@@ -2,12 +2,15 @@ package com.kfokam.k48.repository;
 
 import com.kfokam.k48.domain.SessionCours;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface SessionCoursRepository extends JpaRepository<SessionCours, Long> {
+
+    List<SessionCours> findByPromotionIdOrderByOuvertureAtAsc(Long promotionId);
 
     @Query("""
             select case when count(s) > 0 then true else false end

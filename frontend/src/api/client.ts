@@ -117,6 +117,24 @@ export interface RendreRelectureRequete {
   commentaire: string;
 }
 
+export interface DetailPresence {
+  sessionId: number;
+  titre: string;
+  present: boolean;
+  source: "ETUDIANT" | "FORMATEUR" | null;
+}
+
+export interface LigneTableau {
+  etudiantId: number;
+  nom: string;
+  presences: number;
+  exercicesDeposes: number;
+  moyenne: number | null;
+  relecturesEnAttente: number;
+  detailPresences: DetailPresence[];
+  exercicesEnAttente: number;
+}
+
 export const api = {
   ouvrirSession: (donnees: OuvrirSessionRequete) =>
     requete<SessionOuverte>("POST", "/api/sessions", donnees),
@@ -133,4 +151,6 @@ export const api = {
     requete<RelectureDetail>("GET", `/api/relectures/${relectureId}`),
   rendreRelecture: (relectureId: number, donnees: RendreRelectureRequete) =>
     requete<void>("POST", `/api/relectures/${relectureId}`, donnees),
+  obtenirTableau: (promotionId: number) =>
+    requete<LigneTableau[]>("GET", `/api/tableau?promotionId=${promotionId}`),
 };

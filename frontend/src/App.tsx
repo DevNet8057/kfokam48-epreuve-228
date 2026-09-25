@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import { Layout } from "./Layout";
 import { ChoixIdentite } from "./pages/identite/ChoixIdentite";
-import { OuvertureSession } from "./pages/formateur/OuvertureSession";
+import { EspaceFormateur } from "./pages/formateur/EspaceFormateur";
 import { EspaceEtudiant } from "./pages/etudiant/EspaceEtudiant";
 import { EspaceRelecteur } from "./pages/relecteur/EspaceRelecteur";
 import { RouteProtegee } from "./identite/RouteProtegee";
@@ -11,7 +11,7 @@ export function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<ChoixIdentite />} />
-        <Route path="/formateur" element={<OuvertureSession />} />
+        <Route path="/formateur" element={<EspaceFormateur />} />
         <Route
           path="/etudiant"
           element={
