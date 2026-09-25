@@ -72,10 +72,24 @@ export interface Etudiant {
   promotionId: number;
 }
 
+export interface MarquerPresenceRequete {
+  code: string;
+  etudiantId: number;
+}
+
+export interface Presence {
+  id: number;
+  sessionId: number;
+  etudiantId: number;
+  source: "ETUDIANT" | "FORMATEUR";
+}
+
 export const api = {
   ouvrirSession: (donnees: OuvrirSessionRequete) =>
     requete<SessionOuverte>("POST", "/api/sessions", donnees),
   listerPromotions: () => requete<Promotion[]>("GET", "/api/promotions"),
   listerEtudiantsDeLaPromotion: (promotionId: number) =>
     requete<Etudiant[]>("GET", `/api/promotions/${promotionId}/etudiants`),
+  marquerPresence: (donnees: MarquerPresenceRequete) =>
+    requete<Presence>("POST", "/api/presences", donnees),
 };
