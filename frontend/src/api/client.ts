@@ -84,6 +84,17 @@ export interface Presence {
   source: "ETUDIANT" | "FORMATEUR";
 }
 
+export interface DeposerExerciceRequete {
+  sessionId: number;
+  etudiantId: number;
+  lien: string;
+}
+
+export interface Exercice {
+  id: number;
+  statut: "SANS_RELECTEUR" | "EN_ATTENTE_RELECTURE" | "EN_COURS_RELECTURE" | "RELU";
+}
+
 export const api = {
   ouvrirSession: (donnees: OuvrirSessionRequete) =>
     requete<SessionOuverte>("POST", "/api/sessions", donnees),
@@ -92,4 +103,6 @@ export const api = {
     requete<Etudiant[]>("GET", `/api/promotions/${promotionId}/etudiants`),
   marquerPresence: (donnees: MarquerPresenceRequete) =>
     requete<Presence>("POST", "/api/presences", donnees),
+  deposerExercice: (donnees: DeposerExerciceRequete) =>
+    requete<Exercice>("POST", "/api/exercices", donnees),
 };
