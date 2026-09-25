@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Backend absent (avant K48-23), étape ignorée
+        if: ${{ hashFiles('backend/pom.xml') == '' }}
+        run: echo "Pas encore de backend/pom.xml"
+      - uses: actions/setup-java@v4
+        if: ${{ hashFiles('backend/pom.xml') != '' }}
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Tests backend
+        if: ${{ hashFiles('backend/pom.xml') != '' }}
+        working-directory: backend
+        run: chmod +x mvnw && ./mvnw -B test
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Frontend absent (avant K48-24), étape ignorée
+        if: ${{ hashFiles('frontend/package.json') == '' }}
+        run: echo "Pas encore de frontend/package.json"
+      - uses: actions/setup-node@v4
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        with:
+          node-version: "20"
+      - name: Build frontend
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        working-directory: frontend
+        run: npm ci && npm run build
