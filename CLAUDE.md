@@ -68,7 +68,7 @@ Un ticket bloqué garde son statut et reçoit le drapeau « Flagged » avec un c
 - Un commit = une idée. Jamais `update`, `fix`, `wip`, `test2`.
 - `main` ne reçoit que des PR fusionnées. **Jamais de push direct sur `main`, jamais de `push --force` sur `main`.**
 - Le préfixe `[JALON]` est réservé aux trois jalons, posés **par l'humain** uniquement.
-- Dans chaque clone, exécuter `./scripts/enable-dev-hooks.ps1` : le hook pré-push lance `scripts/verify.sh`. Il exécute les tests Maven et le build React dès que les projets existent.
+- Dans chaque clone, exécuter `./scripts/enable-dev-hooks.ps1` : le hook pré-push lance `scripts/verify.sh`. Il exécute les tests Maven et le build React dès que les projets existent. Le workflow GitHub peut être lancé manuellement dès que les runners hébergés sont disponibles.
 
 ## 6. Modèles de commentaires Jira
 
