@@ -1,0 +1,515 @@
+openapi: 3.0.3
+info:
+  title: K48 — Présences et relectures
+  description: >
+    Contrat d'API du projet K48. Les cinq opérations marquées "imposé" (chemin, verbe, corps,
+    codes de retour) ne doivent jamais être modifiées. Les statuts additionnels documentés
+    par H5/H14 complètent ces opérations sans changer leur forme imposée.
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8080
+
+# Aucune authentification (Q1, H13) : risque accepté et documenté, pas un oubli.
+security: []
+
+paths:
+  /api/sessions:
+    get:
+      summary: "[Ajouté] Sessions d'une promotion"
+      operationId: listerSessionsDeLaPromotion
+      parameters:
+        - name: promotionId
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Sessions de la promotion
+        "404":
+          description: Promotion inconnue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+    post:
+      summary: "[Imposé] Ouvrir une session de cours et obtenir un code de présence (EF1)"
+      operationId: ouvrirSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [titre, promotionId]
+              properties:
+                titre:
+                  type: string
+                promotionId:
+                  type: integer
+                  format: int64
+      responses:
+        "201":
+          description: Session ouverte
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer, format: int64 }
+                  code: { type: string, example: "C9P6VY" }
+                  ouvertureAt: { type: string, format: date-time }
+                  expirationAt: { type: string, format: date-time }
+        "400":
+          description: Champ manquant ou promotion inconnue (H14 — référence en body)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                champManquant:
+                  value: { code: CHAMP_MANQUANT, message: "Le champ titre est invalide." }
+                promotionInconnue:
+                  value: { code: PROMOTION_INCONNUE, message: "La promotion n'existe pas." }
+
+  /api/presences:
+    post:
+      summary: "[Imposé] Marquer sa présence avec un code (EF3)"
+      operationId: marquerPresence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, etudiantId]
+              properties:
+                code: { type: string }
+                etudiantId: { type: integer, format: int64 }
+      responses:
+        "201":
+          description: Présence enregistrée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer, format: int64 }
+                  sessionId: { type: integer, format: int64 }
+                  etudiantId: { type: integer, format: int64 }
+                  source: { type: string, enum: [ETUDIANT, FORMATEUR] }
+        "400":
+          description: Code inconnu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                codeInconnu:
+                  value: { code: CODE_INCONNU, message: "Ce code ne correspond à aucune session active de votre promotion." }
+        "409":
+          description: Déjà présent (RG5, protégé par contrainte UNIQUE — jamais 500, ENF6)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                dejaPresent:
+                  value: { code: DEJA_PRESENT, message: "Vous avez déjà marqué votre présence à cette session." }
+        "410":
+          description: Code expiré ou session clôturée (RG1, RG21)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                codeExpire:
+                  value: { code: CODE_EXPIRE, message: "Le code de présence a expiré." }
+        "429":
+          description: "Ajouté (H5) : trop de tentatives de code inconnu, blocage 2 min (RG7)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                tropDeTentatives:
+                  value: { code: TROP_DE_TENTATIVES, message: "Trop d'erreurs, réessayez dans deux minutes." }
+
+  /api/exercices:
+    post:
+      summary: "[Imposé] Déposer le lien d'un exercice (EF6)"
+      operationId: deposerExercice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, etudiantId, lien]
+              properties:
+                sessionId: { type: integer, format: int64 }
+                etudiantId: { type: integer, format: int64 }
+                lien: { type: string, format: uri }
+      responses:
+        "201":
+          description: Exercice déposé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer, format: int64 }
+                  statut: { type: string, enum: [SANS_RELECTEUR, EN_ATTENTE_RELECTURE] }
+        "400":
+          description: Lien invalide
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                lienInvalide:
+                  value: { code: LIEN_INVALIDE, message: "Le lien doit être une URL absolue http(s)." }
+        "409":
+          description: Exercice déjà déposé, ou session clôturée (ajouté, H14/RG20)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                dejaDepose:
+                  value: { code: EXERCICE_DEJA_DEPOSE, message: "Vous avez déjà déposé un exercice pour cette session." }
+                sessionCloturee:
+                  value: { code: SESSION_CLOTUREE, message: "Cette session est clôturée." }
+
+  /api/relectures/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      summary: "[Ajouté] Détail d'une relecture ; enregistre ouverte_at à la première ouverture (H9)"
+      operationId: obtenirRelecture
+      parameters:
+        - $ref: "#/components/parameters/EtudiantId"
+      responses:
+        "200":
+          description: Détail de la relecture
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Relecture" }
+        "403":
+          description: Relecteur non assigné
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                nonAssigne:
+                  value: { code: RELECTEUR_NON_ASSIGNE, message: "Vous n'êtes pas le relecteur assigné à cet exercice." }
+        "404":
+          description: Relecture inconnue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                inconnue:
+                  value: { code: RELECTURE_INCONNUE, message: "Cette relecture n'existe pas." }
+    post:
+      summary: "[Imposé] Rendre une note et un commentaire définitifs (EF9)"
+      operationId: rendreRelecture
+      parameters:
+        - $ref: "#/components/parameters/EtudiantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note, commentaire]
+              properties:
+                note: { type: integer, minimum: 0, maximum: 20 }
+                commentaire: { type: string }
+      responses:
+        "200":
+          description: Relecture enregistrée
+        "400":
+          description: Note invalide (RG3 — jamais arrondie)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                noteInvalide:
+                  value: { code: NOTE_INVALIDE, message: "La note doit être un entier compris entre 0 et 20." }
+        "403":
+          description: Auto-relecture interdite (RG2)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                autoRelecture:
+                  value: { code: AUTO_RELECTURE, message: "Vous ne pouvez pas relire votre propre exercice." }
+        "404":
+          description: "Ajouté (H14) : relecture inconnue"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+        "409":
+          description: Relecture déjà rendue, ou session clôturée (ajouté, RG20)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                dejaRendue:
+                  value: { code: RELECTURE_DEJA_RENDUE, message: "Cette relecture a déjà été rendue." }
+                sessionCloturee:
+                  value: { code: SESSION_CLOTUREE, message: "Cette session est clôturée." }
+
+  /api/tableau:
+    get:
+      summary: "[Imposé] Tableau de présence et de notes du formateur (EF10)"
+      operationId: obtenirTableau
+      parameters:
+        - name: promotionId
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: Tableau de la promotion
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    etudiantId: { type: integer, format: int64 }
+                    nom: { type: string }
+                    presences: { type: integer }
+                    exercicesDeposes: { type: integer }
+                    moyenne: { type: number, nullable: true }
+                    relecturesEnAttente: { type: integer }
+                    detailPresences:
+                      description: "Ajouté (H11)"
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          sessionId: { type: integer, format: int64 }
+                          titre: { type: string }
+                          present: { type: boolean }
+                          source: { type: string, enum: [ETUDIANT, FORMATEUR], nullable: true }
+                    exercicesEnAttente:
+                      description: "Ajouté (H12)"
+                      type: integer
+        "404":
+          description: Promotion inconnue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+              examples:
+                promotionInconnue:
+                  value: { code: PROMOTION_INCONNUE, message: "Cette promotion n'existe pas." }
+
+  /api/promotions:
+    get:
+      summary: "[Ajouté] Liste des promotions (K48-25)"
+      operationId: listerPromotions
+      responses:
+        "200":
+          description: Promotions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Promotion" }
+
+  /api/promotions/{id}/etudiants:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      summary: "[Ajouté] Étudiants d'une promotion, pour l'identification (K48-25, Q1)"
+      operationId: listerEtudiantsDeLaPromotion
+      responses:
+        "200":
+          description: Étudiants
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Etudiant" }
+        "404":
+          description: Promotion inconnue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+
+  /api/sessions/{id}/presences:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      summary: "[Ajouté] Présence manuelle par le formateur (EF5, Q14)"
+      operationId: ajouterPresenceManuelle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [etudiantId]
+              properties:
+                etudiantId: { type: integer, format: int64 }
+      responses:
+        "201":
+          description: Présence ajoutée, source = FORMATEUR
+        "400":
+          description: Étudiant inconnu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+        "404":
+          description: Session inconnue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+        "409":
+          description: Déjà présent, ou session clôturée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+
+  /api/sessions/{id}/cloture:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      summary: "[Ajouté] Clôturer une session, irréversible (EF13, RG20, RG21)"
+      operationId: cloturerSession
+      responses:
+        "200":
+          description: Session clôturée
+        "404":
+          description: Session inconnue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+        "409":
+          description: Déjà clôturée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+
+  /api/exercices/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    put:
+      summary: "[Ajouté] Remplacer le lien d'un exercice (EF12, RG16)"
+      operationId: remplacerLienExercice
+      parameters:
+        - $ref: "#/components/parameters/EtudiantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lien]
+              properties:
+                lien: { type: string, format: uri }
+      responses:
+        "200":
+          description: Lien remplacé
+        "400":
+          description: Lien invalide
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+        "403":
+          description: Pas l'auteur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+        "404":
+          description: Exercice inconnu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+        "409":
+          description: Remplacement impossible (relecture commencée ou session clôturée)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+
+  /api/etudiants/{id}/exercices:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      summary: "[Ajouté] Exercices et notes reçues par l'étudiant, sans le relecteur (Q8)"
+      operationId: listerExercicesDeLEtudiant
+      responses:
+        "200":
+          description: Exercices de l'étudiant
+        "404":
+          description: Étudiant inconnu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+
+  /api/etudiants/{id}/relectures:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      summary: "[Ajouté] Relectures à faire par l'étudiant, sans l'auteur (EF8)"
+      operationId: listerRelecturesDeLEtudiant
+      responses:
+        "200":
+          description: Relectures assignées
+        "404":
+          description: Étudiant inconnu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Erreur" }
+
+components:
+  parameters:
+    EtudiantId:
+      name: X-Etudiant-Id
+      in: header
+      required: true
+      description: "Identité de l'appelant, faute d'authentification (T1). Absent → 400 IDENTITE_MANQUANTE."
+      schema: { type: integer, format: int64 }
+
+  schemas:
+    Erreur:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+    Promotion:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nom: { type: string }
+    Etudiant:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nom: { type: string }
+        promotionId: { type: integer, format: int64 }
+    Relecture:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        exerciceId: { type: integer, format: int64 }
+        note: { type: integer, nullable: true }
+        commentaire: { type: string, nullable: true }
+        rendueAt: { type: string, format: date-time, nullable: true }
