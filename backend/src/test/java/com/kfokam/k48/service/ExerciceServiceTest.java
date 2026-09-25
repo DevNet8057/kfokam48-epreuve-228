@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,7 +34,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * K48-7 : RG2 (jamais l'auteur), RG12 (le moins chargé), RG13 (SANS_RELECTEUR si personne).
+ * K48-7 / C2 (deux relecteurs, étape 3) : RG2 (jamais l'auteur), RG12 v2 (deux distincts, les
+ * moins chargés), RG13 (un seul candidat -> un seul relecteur ; aucun -> SANS_RELECTEUR).
  */
 @ExtendWith(MockitoExtension.class)
 class ExerciceServiceTest {
@@ -81,24 +83,26 @@ class ExerciceServiceTest {
         champId.set(entite, id);
     }
 
-    @Test
-    void ne_tire_jamais_l_auteur_meme_seul_present() throws Exception {
-        Promotion promotion = new Promotion("Promo");
+    private void preparerDepot(Promotion promotion, Etudiant auteur, SessionCours session, List<Long> presents) throws Exception {
         forcerId(promotion, 1L);
-        Etudiant auteur = creerEtudiant(1L, promotion);
-        SessionCours session = new SessionCours("Cours", promotion, "AAAAAA", MAINTENANT, MAINTENANT.plusSeconds(900));
         forcerId(session, 10L);
-
         when(etudiantRepository.findById(1L)).thenReturn(Optional.of(auteur));
         when(sessionCoursRepository.findById(10L)).thenReturn(Optional.of(session));
         when(exerciceRepository.existsBySessionIdAndAuteurId(10L, 1L)).thenReturn(false);
-        // Seul l'auteur est présent à sa propre session.
-        when(presenceRepository.trouverIdsEtudiantsPresents(10L)).thenReturn(List.of(1L));
+        when(presenceRepository.trouverIdsEtudiantsPresents(10L)).thenReturn(presents);
         when(exerciceRepository.save(any(Exercice.class))).thenAnswer(invocation -> {
             Exercice exercice = invocation.getArgument(0);
             forcerId(exercice, 100L);
             return exercice;
         });
+    }
+
+    @Test
+    void ne_tire_jamais_l_auteur_meme_seul_present() throws Exception {
+        Promotion promotion = new Promotion("Promo");
+        Etudiant auteur = creerEtudiant(1L, promotion);
+        SessionCours session = new SessionCours("Cours", promotion, "AAAAAA", MAINTENANT, MAINTENANT.plusSeconds(900));
+        preparerDepot(promotion, auteur, session, List.of(1L));
 
         ExerciceResponse reponse = exerciceService.deposerExercice(new DeposerExerciceRequete(10L, 1L, "https://exemple.test/mon-exercice"));
 
@@ -107,36 +111,56 @@ class ExerciceServiceTest {
     }
 
     @Test
-    void tire_le_relecteur_le_moins_charge_parmi_les_presents() throws Exception {
+    void tire_un_seul_relecteur_si_un_seul_candidat_disponible() throws Exception {
         Promotion promotion = new Promotion("Promo");
-        forcerId(promotion, 1L);
         Etudiant auteur = creerEtudiant(1L, promotion);
         SessionCours session = new SessionCours("Cours", promotion, "AAAAAA", MAINTENANT, MAINTENANT.plusSeconds(900));
-        forcerId(session, 10L);
-
-        when(etudiantRepository.findById(1L)).thenReturn(Optional.of(auteur));
-        when(sessionCoursRepository.findById(10L)).thenReturn(Optional.of(session));
-        when(exerciceRepository.existsBySessionIdAndAuteurId(10L, 1L)).thenReturn(false);
-        // Auteur (1) + deux candidats (2 et 3) ; 2 est déjà plus chargé, 3 doit être choisi.
-        when(presenceRepository.trouverIdsEtudiantsPresents(10L)).thenReturn(List.of(1L, 2L, 3L));
-        when(relectureRepository.countByRelecteurId(2L)).thenReturn(3L);
-        when(relectureRepository.countByRelecteurId(3L)).thenReturn(0L);
-        when(etudiantRepository.getReferenceById(3L)).thenReturn(creerEtudiant(3L, promotion));
-        when(exerciceRepository.save(any(Exercice.class))).thenAnswer(invocation -> {
-            Exercice exercice = invocation.getArgument(0);
-            forcerId(exercice, 100L);
-            return exercice;
-        });
+        preparerDepot(promotion, auteur, session, List.of(1L, 2L));
+        when(etudiantRepository.getReferenceById(2L)).thenReturn(creerEtudiant(2L, promotion));
 
         ExerciceResponse reponse = exerciceService.deposerExercice(new DeposerExerciceRequete(10L, 1L, "https://exemple.test/mon-exercice"));
 
         assertThat(reponse.statut()).isEqualTo(StatutExercice.EN_ATTENTE_RELECTURE.name());
-        verify(relectureRepository).save(any());
+        verify(relectureRepository, times(1)).save(any());
+    }
+
+    @Test
+    void tire_deux_relecteurs_distincts_si_deux_candidats_disponibles() throws Exception {
+        Promotion promotion = new Promotion("Promo");
+        Etudiant auteur = creerEtudiant(1L, promotion);
+        SessionCours session = new SessionCours("Cours", promotion, "AAAAAA", MAINTENANT, MAINTENANT.plusSeconds(900));
+        preparerDepot(promotion, auteur, session, List.of(1L, 2L, 3L));
+        when(etudiantRepository.getReferenceById(2L)).thenReturn(creerEtudiant(2L, promotion));
+        when(etudiantRepository.getReferenceById(3L)).thenReturn(creerEtudiant(3L, promotion));
+
+        ExerciceResponse reponse = exerciceService.deposerExercice(new DeposerExerciceRequete(10L, 1L, "https://exemple.test/mon-exercice"));
+
+        assertThat(reponse.statut()).isEqualTo(StatutExercice.EN_ATTENTE_RELECTURE.name());
+        verify(relectureRepository, times(2)).save(any());
+    }
+
+    @Test
+    void ne_tire_pas_plus_de_deux_relecteurs_meme_avec_trois_candidats_disponibles() throws Exception {
+        Promotion promotion = new Promotion("Promo");
+        Etudiant auteur = creerEtudiant(1L, promotion);
+        SessionCours session = new SessionCours("Cours", promotion, "AAAAAA", MAINTENANT, MAINTENANT.plusSeconds(900));
+        // Auteur (1) + trois candidats (2, 3, 4) ; 2 est le plus charge, 3 et 4 les moins charges.
+        preparerDepot(promotion, auteur, session, List.of(1L, 2L, 3L, 4L));
+        when(relectureRepository.countByRelecteurId(2L)).thenReturn(5L);
+        when(relectureRepository.countByRelecteurId(3L)).thenReturn(0L);
+        when(relectureRepository.countByRelecteurId(4L)).thenReturn(0L);
+        when(etudiantRepository.getReferenceById(3L)).thenReturn(creerEtudiant(3L, promotion));
+        when(etudiantRepository.getReferenceById(4L)).thenReturn(creerEtudiant(4L, promotion));
+
+        ExerciceResponse reponse = exerciceService.deposerExercice(new DeposerExerciceRequete(10L, 1L, "https://exemple.test/mon-exercice"));
+
+        assertThat(reponse.statut()).isEqualTo(StatutExercice.EN_ATTENTE_RELECTURE.name());
+        verify(relectureRepository, times(2)).save(any());
         verify(etudiantRepository, never()).getReferenceById(2L);
     }
 
     @Test
-    void refuse_un_lien_non_http() throws Exception {
+    void refuse_un_lien_non_http() {
         BusinessException exception = catchThrowableOfType(
                 () -> exerciceService.deposerExercice(new DeposerExerciceRequete(10L, 1L, "ftp://exemple.test/x")),
                 BusinessException.class);

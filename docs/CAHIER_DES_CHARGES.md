@@ -72,13 +72,13 @@ relecteur ponctuel pour un exercice d'un pair de la même session.
 | RG9 | Un seul exercice par étudiant et par session → `409 EXERCICE_DEJA_DEPOSE` |
 | RG10 | Dépôt possible jusqu'à la clôture, même par un absent |
 | RG11 | Lien = URL absolue `http`/`https` → sinon `400 LIEN_INVALIDE` |
-| RG12 | Un seul relecteur, tiré au hasard parmi les présents, auteur exclu, les moins chargés en priorité |
-| RG13 | Sans candidat : `SANS_RELECTEUR`, attribution retentée à chaque nouvelle présence |
+| RG12 | **(v2, remplace Q6 — voir C2)** Deux relecteurs distincts, tirés au hasard parmi les présents, auteur exclu, les moins chargés en priorité |
+| RG13 | Un seul candidat disponible : un seul relecteur tiré ; sans candidat : `SANS_RELECTEUR`. Le(s) relecteur(s) manquant(s) sont retentés à chaque nouvelle présence |
 | RG14 | Relecture rendue définitive → `409 RELECTURE_DEJA_RENDUE` |
 | RG15 | Seul le relecteur désigné rend la relecture ; appelant identifié par `X-Etudiant-Id` ; auteur → `403 AUTO_RELECTURE`, autre étudiant → `403 RELECTEUR_NON_ASSIGNE` |
 | RG16 | Lien remplaçable tant que le relecteur ne l'a pas ouvert et que la session n'est pas clôturée |
 | RG17 | L'étudiant relu voit note et commentaire, jamais l'identité du relecteur |
-| RG18 | Moyenne = moyenne des notes rendues, arrondie à 2 décimales, `null` sans note, calculée uniquement par l'API |
+| RG18 | **(v2)** Moyenne calculée par exercice d'abord (moyenne des notes rendues pour cet exercice — une seule note rendue sur deux vaut comme note provisoire de l'exercice), puis moyenne des exercices pour l'étudiant, arrondie à 2 décimales, `null` sans aucune note, calculée uniquement par l'API |
 | RG19 | Relectures en attente = relectures assignées et non rendues |
 | RG20 | Clôture irréversible ; ensuite plus de dépôt, remplacement, présence manuelle ni relecture → `409 SESSION_CLOTUREE` |
 | RG21 | La clôture rend le code inutilisable, même avant 15 min → `410 CODE_EXPIRE` |
@@ -127,6 +127,15 @@ relecteur ponctuel pour un exercice d'un pair de la même session.
   `X-Etudiant-Id`**, chemin/verbe/corps/codes intacts. En-tête absent → `400 IDENTITE_MANQUANTE`.
 - **T2 — Trou : aucun candidat relecteur.** L'exercice reste `SANS_RELECTEUR` et l'attribution est
   retentée à chaque nouvelle présence dans la session.
+- **C2 — Changement de besoin (étape 3, remplace Q6).** Le client est revenu sur « un seul
+  relecteur » : avec un seul relecteur, quand il ne rend rien, l'étudiant n'a aucune note. À partir
+  de ce changement, **chaque exercice est relu par deux pairs distincts**, et la note retenue pour
+  l'exercice est la moyenne des deux notes rendues. Si un seul des deux a rendu, sa note sert de
+  **valeur provisoire** (RG12, RG13, RG18 mis à jour en conséquence). Périmètre livré pour ce
+  changement : calcul backend complet (migration, tirage à deux, moyenne par exercice). **Sacrifié** :
+  l'écran étudiant dédié à l'affichage explicite de la mention « provisoire » (partie de K48-14,
+  Should, jamais démarrée) n'a pas été construit dans le temps imparti — seul le calcul de la
+  moyenne globale (déjà consommé par le tableau formateur, K48-10) reflète la nouvelle règle.
 
 ## 9. Décisions techniques (résumé, détail dans le README et le code)
 
