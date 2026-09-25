@@ -16,4 +16,7 @@ public interface RelectureRepository extends JpaRepository<Relecture, Long> {
 
     /** K48-10 : relectures reçues (en tant qu'auteur de l'exercice) pour le calcul de la moyenne (RG18). */
     List<Relecture> findByExercice_AuteurIdIn(List<Long> auteurIds);
+
+    /** C2 (deux relecteurs) : toutes les lignes de relecture d'un exercice (une par relecteur assigné). */
+    List<Relecture> findByExercice_Id(Long exerciceId);
 }

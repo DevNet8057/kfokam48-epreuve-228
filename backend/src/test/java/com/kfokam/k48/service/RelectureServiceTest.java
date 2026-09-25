@@ -22,6 +22,7 @@ import java.lang.reflect.Field;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -135,10 +136,11 @@ class RelectureServiceTest {
     }
 
     @Test
-    void rend_la_relecture_et_passe_l_exercice_relu() throws Exception {
+    void rend_la_relecture_et_passe_l_exercice_relu_si_seul_relecteur_assigne() throws Exception {
         Relecture relecture = creerRelecture(creerEtudiant(2L), StatutExercice.EN_COURS_RELECTURE);
-
         when(relectureRepository.findById(1L)).thenReturn(Optional.of(relecture));
+        // Un seul relecteur assigne a cet exercice (id 5L) : lui-meme.
+        when(relectureRepository.findByExercice_Id(5L)).thenReturn(List.of(relecture));
 
         relectureService.rendreRelecture(1L, 2L, new RendreRelectureRequete(IntNode.valueOf(18), "Très bon travail"));
 
@@ -149,10 +151,27 @@ class RelectureServiceTest {
     }
 
     @Test
+    void reste_en_cours_de_relecture_si_un_seul_des_deux_relecteurs_a_rendu() throws Exception {
+        // C2 (deux relecteurs) : tant que le second n'a pas rendu, l'exercice ne passe pas RELU
+        // et la note du premier sert de valeur provisoire (RG18 v2).
+        Relecture relectureRendue = creerRelecture(creerEtudiant(2L), StatutExercice.EN_COURS_RELECTURE);
+        Relecture autreRelecture = new Relecture(relectureRendue.getExercice(), creerEtudiant(3L));
+        forcerId(autreRelecture, 2L);
+
+        when(relectureRepository.findById(1L)).thenReturn(Optional.of(relectureRendue));
+        when(relectureRepository.findByExercice_Id(5L)).thenReturn(List.of(relectureRendue, autreRelecture));
+
+        relectureService.rendreRelecture(1L, 2L, new RendreRelectureRequete(IntNode.valueOf(16), "Bon travail"));
+
+        assertThat(relectureRendue.getExercice().getStatut()).isEqualTo(StatutExercice.EN_COURS_RELECTURE);
+    }
+
+    @Test
     void fige_ouverte_at_a_rendue_at_si_jamais_ouverte() throws Exception {
         Relecture relecture = creerRelecture(creerEtudiant(2L), StatutExercice.EN_ATTENTE_RELECTURE);
 
         when(relectureRepository.findById(1L)).thenReturn(Optional.of(relecture));
+        when(relectureRepository.findByExercice_Id(5L)).thenReturn(List.of(relecture));
 
         relectureService.rendreRelecture(1L, 2L, new RendreRelectureRequete(IntNode.valueOf(10), "Ok"));
 

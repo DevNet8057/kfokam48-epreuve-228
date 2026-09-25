@@ -17,6 +17,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -83,14 +84,14 @@ public class ExerciceService {
 
         Exercice exercice = new Exercice(session, auteur, requete.lien(), StatutExercice.SANS_RELECTEUR, clock.instant());
 
-        Long relecteurId = tirerRelecteur(session.getId(), auteur.getId());
-        if (relecteurId != null) {
+        List<Long> relecteurIds = tirerRelecteurs(session.getId(), auteur.getId());
+        if (!relecteurIds.isEmpty()) {
             exercice.setStatut(StatutExercice.EN_ATTENTE_RELECTURE);
         }
 
         exercice = exerciceRepository.save(exercice);
 
-        if (relecteurId != null) {
+        for (Long relecteurId : relecteurIds) {
             Etudiant relecteur = etudiantRepository.getReferenceById(relecteurId);
             relectureRepository.save(new Relecture(exercice, relecteur));
         }
@@ -98,28 +99,36 @@ public class ExerciceService {
         return ExerciceResponse.from(exercice);
     }
 
-    /** RG12/RG13 : parmi les présents autres que l'auteur, le(s) moins chargé(s), tirage au hasard s'il y a égalité. */
-    private Long tirerRelecteur(Long sessionId, Long auteurId) {
-        List<Long> candidats = presenceRepository.trouverIdsEtudiantsPresents(sessionId).stream()
+    /**
+     * RG12 v2 (C2, étape 3) : jusqu'à DEUX relecteurs distincts, parmi les présents autres que
+     * l'auteur, les moins chargés en priorité, tirage au hasard en cas d'égalité. Un seul candidat
+     * disponible -> un seul relecteur tiré (le second sera retenté à la prochaine présence, RG13).
+     */
+    private static final int NOMBRE_RELECTEURS = 2;
+
+    private List<Long> tirerRelecteurs(Long sessionId, Long auteurId) {
+        List<Long> candidats = new ArrayList<>(presenceRepository.trouverIdsEtudiantsPresents(sessionId).stream()
                 .distinct()
                 .filter(id -> !id.equals(auteurId))
-                .toList();
+                .toList());
 
-        if (candidats.isEmpty()) {
-            return null;
+        List<Long> retenus = new ArrayList<>();
+        for (int i = 0; i < NOMBRE_RELECTEURS && !candidats.isEmpty(); i++) {
+            long chargeMinimale = candidats.stream()
+                    .mapToLong(relectureRepository::countByRelecteurId)
+                    .min()
+                    .orElse(0);
+
+            List<Long> moinsCharges = candidats.stream()
+                    .filter(id -> relectureRepository.countByRelecteurId(id) == chargeMinimale)
+                    .sorted(Comparator.naturalOrder())
+                    .toList();
+
+            Long tire = moinsCharges.get(random.nextInt(moinsCharges.size()));
+            retenus.add(tire);
+            candidats.remove(tire);
         }
-
-        long chargeMinimale = candidats.stream()
-                .mapToLong(relectureRepository::countByRelecteurId)
-                .min()
-                .orElse(0);
-
-        List<Long> moinsCharges = candidats.stream()
-                .filter(id -> relectureRepository.countByRelecteurId(id) == chargeMinimale)
-                .sorted(Comparator.naturalOrder())
-                .toList();
-
-        return moinsCharges.get(random.nextInt(moinsCharges.size()));
+        return retenus;
     }
 
     private void validerLien(String lien) {

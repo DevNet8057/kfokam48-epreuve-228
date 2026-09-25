@@ -7,10 +7,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
+/**
+ * Depuis C2 (étape 3, deux relecteurs) : plusieurs lignes Relecture peuvent référencer le même
+ * exercice (une par relecteur), d'où @ManyToOne au lieu de @OneToOne — voir V3__deux_relecteurs.sql.
+ */
 @Entity
 @Table(name = "relecture")
 public class Relecture {
@@ -19,8 +22,8 @@ public class Relecture {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(optional = false)
-    @JoinColumn(name = "exercice_id", nullable = false, unique = true)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "exercice_id", nullable = false)
     private Exercice exercice;
 
     @ManyToOne(optional = false)

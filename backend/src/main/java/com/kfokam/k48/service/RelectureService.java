@@ -99,7 +99,16 @@ public class RelectureService {
             // Rendue sans ouverture préalable : ouverte_at prend la valeur de rendue_at.
             relecture.setOuverteAt(maintenant);
         }
-        relecture.getExercice().setStatut(StatutExercice.RELU);
+
+        // C2 (deux relecteurs) : RELU seulement quand TOUS les relecteurs assignés ont rendu.
+        // Un seul rendu sur deux -> l'exercice reste EN_COURS_RELECTURE, sa note est provisoire (RG18 v2).
+        boolean tousRendus = relectureRepository.findByExercice_Id(relecture.getExercice().getId()).stream()
+                .allMatch(r -> r.getRendueAt() != null);
+        if (tousRendus) {
+            relecture.getExercice().setStatut(StatutExercice.RELU);
+        } else {
+            relecture.getExercice().setStatut(StatutExercice.EN_COURS_RELECTURE);
+        }
     }
 
     private int validerNote(JsonNode note) {

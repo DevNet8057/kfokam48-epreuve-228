@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,12 +84,26 @@ public class TableauService {
             relecturesEnAttenteParRelecteur.merge(relecture.getRelecteur().getId(), 1L, Long::sum);
         }
 
-        Map<Long, List<Integer>> notesParAuteur = new HashMap<>();
+        // C2 (deux relecteurs) : la moyenne se calcule par exercice d'abord (une seule note
+        // rendue sur deux compte comme valeur provisoire de cet exercice, RG18 v2), puis on
+        // moyenne les exercices par étudiant.
+        Map<Long, List<Relecture>> relecturesParExercice = new HashMap<>();
         for (Relecture relecture : relectureRepository.findByExercice_AuteurIdIn(etudiantIds)) {
-            if (relecture.getNote() != null) {
-                notesParAuteur.computeIfAbsent(relecture.getExercice().getAuteur().getId(), id -> new ArrayList<>())
-                        .add(relecture.getNote());
+            relecturesParExercice.computeIfAbsent(relecture.getExercice().getId(), id -> new ArrayList<>()).add(relecture);
+        }
+
+        Map<Long, List<Double>> notesEffectivesParAuteur = new HashMap<>();
+        for (List<Relecture> relecturesDeCetExercice : relecturesParExercice.values()) {
+            List<Integer> notesRendues = relecturesDeCetExercice.stream()
+                    .map(Relecture::getNote)
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (notesRendues.isEmpty()) {
+                continue;
             }
+            double noteEffective = notesRendues.stream().mapToInt(Integer::intValue).average().orElse(0);
+            Long auteurId = relecturesDeCetExercice.get(0).getExercice().getAuteur().getId();
+            notesEffectivesParAuteur.computeIfAbsent(auteurId, id -> new ArrayList<>()).add(noteEffective);
         }
 
         List<LigneTableauResponse> lignes = new ArrayList<>();
@@ -111,8 +126,10 @@ public class TableauService {
                     .filter(exercice -> exercice.getStatut() != StatutExercice.RELU)
                     .count();
 
-            List<Integer> notes = notesParAuteur.get(etudiant.getId());
-            Double moyenne = (notes == null || notes.isEmpty()) ? null : arrondirADeuxDecimales(moyenneDe(notes));
+            List<Double> notesEffectives = notesEffectivesParAuteur.get(etudiant.getId());
+            Double moyenne = (notesEffectives == null || notesEffectives.isEmpty())
+                    ? null
+                    : arrondirADeuxDecimales(notesEffectives.stream().mapToDouble(Double::doubleValue).average().orElse(0));
 
             lignes.add(new LigneTableauResponse(
                     etudiant.getId(),
@@ -126,10 +143,6 @@ public class TableauService {
         }
 
         return lignes;
-    }
-
-    private double moyenneDe(List<Integer> notes) {
-        return notes.stream().mapToInt(Integer::intValue).average().orElse(0);
     }
 
     private double arrondirADeuxDecimales(double valeur) {
