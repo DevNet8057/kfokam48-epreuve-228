@@ -1,0 +1,9 @@
+# Les scripts shell doivent rester en LF même sur un checkout Windows,
+# sinon ils cassent à l'exécution dans les conteneurs Linux (Docker) et sur CI.
+*.sh text eol=lf
+mvnw text eol=lf
+.githooks/* text eol=lf
+
+# Les scripts Windows restent en CRLF.
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
