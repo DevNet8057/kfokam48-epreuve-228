@@ -9,6 +9,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "session_cours")
@@ -25,7 +27,12 @@ public class SessionCours {
     @JoinColumn(name = "promotion_id", nullable = false)
     private Promotion promotion;
 
-    @Column(nullable = false, length = 6, columnDefinition = "CHAR(6)")
+    // JdbcTypeCode(CHAR) plutôt que columnDefinition : validate compare le code JDBC réel
+    // (Types.CHAR), pas le texte de la colonne — nécessaire car PostgreSQL rapporte CHAR(6)
+    // comme "bpchar", ce que la comparaison textuelle ne reconnaît pas (bug détecté via Docker/Postgres,
+    // invisible sur H2).
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(nullable = false, length = 6)
     private String code;
 
     @Column(name = "ouverture_at", nullable = false)
