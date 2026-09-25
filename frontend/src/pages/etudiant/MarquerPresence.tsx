@@ -3,6 +3,7 @@ import { Alert, Button, Card, Form, Input, Result, Spin } from "antd";
 import { api } from "../../api/client";
 import { ErreurApi } from "../../api/erreurApi";
 import { useIdentite } from "../../identite/IdentiteContext";
+import { DeposerExercice } from "./DeposerExercice";
 
 interface FormValues {
   code: string;
@@ -15,15 +16,15 @@ export function MarquerPresence() {
   const { identite } = useIdentite();
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [confirmee, setConfirmee] = useState(false);
+  const [sessionId, setSessionId] = useState<number | null>(null);
 
   async function marquerPresence(valeurs: FormValues) {
     if (!identite?.etudiantId) return;
     setChargement(true);
     setErreur(null);
     try {
-      await api.marquerPresence({ code: valeurs.code, etudiantId: identite.etudiantId });
-      setConfirmee(true);
+      const presence = await api.marquerPresence({ code: valeurs.code, etudiantId: identite.etudiantId });
+      setSessionId(presence.sessionId);
     } catch (cause) {
       setErreur(cause instanceof ErreurApi ? cause.message : "Une erreur inattendue est survenue.");
     } finally {
@@ -31,14 +32,17 @@ export function MarquerPresence() {
     }
   }
 
-  if (confirmee) {
+  if (sessionId !== null) {
     return (
-      <Card style={{ maxWidth: 480, margin: "2rem auto" }}>
-        <Result status="success" title="Présence enregistrée" />
-        <Button block onClick={() => setConfirmee(false)}>
-          Marquer une autre présence
-        </Button>
-      </Card>
+      <>
+        <Card style={{ maxWidth: 480, margin: "2rem auto 1rem" }}>
+          <Result status="success" title="Présence enregistrée" />
+          <Button block onClick={() => setSessionId(null)}>
+            Marquer une autre présence
+          </Button>
+        </Card>
+        <DeposerExercice sessionId={sessionId} />
+      </>
     );
   }
 
