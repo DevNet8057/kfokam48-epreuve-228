@@ -6,6 +6,7 @@ target/
 node_modules/
 dist/
 build/
+*.tsbuildinfo
 # Environnement
 .env
 # IDE / OS
