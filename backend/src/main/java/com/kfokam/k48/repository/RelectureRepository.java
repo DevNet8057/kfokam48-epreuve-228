@@ -10,4 +10,10 @@ public interface RelectureRepository extends JpaRepository<Relecture, Long> {
 
     /** EF8 : relectures assignées et non rendues (RG19). */
     List<Relecture> findByRelecteurIdAndRendueAtIsNull(Long relecteurId);
+
+    /** K48-10 : relectures en attente pour tous les relecteurs d'une promotion, en un aller. */
+    List<Relecture> findByRelecteurIdInAndRendueAtIsNull(List<Long> relecteurIds);
+
+    /** K48-10 : relectures reçues (en tant qu'auteur de l'exercice) pour le calcul de la moyenne (RG18). */
+    List<Relecture> findByExercice_AuteurIdIn(List<Long> auteurIds);
 }

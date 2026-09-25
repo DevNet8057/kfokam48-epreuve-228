@@ -12,4 +12,7 @@ public interface PresenceRepository extends JpaRepository<Presence, Long> {
 
     @Query("select p.etudiant.id from Presence p where p.session.id = :sessionId")
     List<Long> trouverIdsEtudiantsPresents(@Param("sessionId") Long sessionId);
+
+    /** K48-10 : toutes les présences des sessions d'une promotion, en un aller. */
+    List<Presence> findBySessionIdIn(List<Long> sessionIds);
 }
