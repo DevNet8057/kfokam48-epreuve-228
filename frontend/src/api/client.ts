@@ -112,6 +112,11 @@ export interface RelectureDetail {
   rendueAt: string | null;
 }
 
+export interface RendreRelectureRequete {
+  note: number;
+  commentaire: string;
+}
+
 export const api = {
   ouvrirSession: (donnees: OuvrirSessionRequete) =>
     requete<SessionOuverte>("POST", "/api/sessions", donnees),
@@ -126,4 +131,6 @@ export const api = {
     requete<RelectureResume[]>("GET", `/api/etudiants/${etudiantId}/relectures`),
   ouvrirRelecture: (relectureId: number) =>
     requete<RelectureDetail>("GET", `/api/relectures/${relectureId}`),
+  rendreRelecture: (relectureId: number, donnees: RendreRelectureRequete) =>
+    requete<void>("POST", `/api/relectures/${relectureId}`, donnees),
 };
