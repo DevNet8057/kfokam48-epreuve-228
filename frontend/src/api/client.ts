@@ -95,6 +95,23 @@ export interface Exercice {
   statut: "SANS_RELECTEUR" | "EN_ATTENTE_RELECTURE" | "EN_COURS_RELECTURE" | "RELU";
 }
 
+export interface RelectureResume {
+  id: number;
+  exerciceId: number;
+  lien: string;
+  statutExercice: string;
+}
+
+export interface RelectureDetail {
+  id: number;
+  exerciceId: number;
+  lien: string;
+  ouverteAt: string | null;
+  note: number | null;
+  commentaire: string | null;
+  rendueAt: string | null;
+}
+
 export const api = {
   ouvrirSession: (donnees: OuvrirSessionRequete) =>
     requete<SessionOuverte>("POST", "/api/sessions", donnees),
@@ -105,4 +122,8 @@ export const api = {
     requete<Presence>("POST", "/api/presences", donnees),
   deposerExercice: (donnees: DeposerExerciceRequete) =>
     requete<Exercice>("POST", "/api/exercices", donnees),
+  listerRelecturesAFaire: (etudiantId: number) =>
+    requete<RelectureResume[]>("GET", `/api/etudiants/${etudiantId}/relectures`),
+  ouvrirRelecture: (relectureId: number) =>
+    requete<RelectureDetail>("GET", `/api/relectures/${relectureId}`),
 };
