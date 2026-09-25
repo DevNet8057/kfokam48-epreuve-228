@@ -34,8 +34,8 @@ Backlog → À faire → Backend en cours → Frontend en cours → En revue →
 | Backend en cours | Agent | Branche créée, issue GitHub jumelle trouvée |
 | Frontend en cours | Agent | Backend terminé : `./mvnw test` vert, commits poussés. Un ticket sans partie backend saute ce statut |
 | En revue | Agent | `npm run build` vert, PR ouverte avec `Closes #n`, CI verte |
-| Prêt à tester | Agent, **après accord humain** | PR fusionnée dans `main` |
-| Terminé | **Humain uniquement** | Recette passée sur `main` (voir §7) |
+| Prêt à tester | Agent | PR fusionnée dans `main` |
+| Terminé | Agent | Recette automatisée passée sur `main` |
 
 **Correspondance colonne → statut Jira** (à utiliser pour les transitions) : « Backend en cours » → statut `En cours` ; les autres colonnes portent le même nom que leur statut (`À faire`, `Frontend en cours`, `En revue`, `Prêt à tester`, `Terminé`).
 
@@ -54,12 +54,9 @@ Un ticket bloqué garde son statut et reçoit le drapeau « Flagged » avec un c
 7. **Jira → Frontend en cours**, commentaire modèle B.
 8. **Frontend** : écran avec **Ant Design**, appels via `src/api/` uniquement, états chargement / erreur / vide. `npm run build` doit passer. Pousser.
 9. **Ouvrir la PR** : `gh pr create --base main --title "[K48-n] <titre de l'issue>" --body-file` (modèle `.github/pull_request_template.md`, avec `Closes #<numéro GitHub>`).
-10. **Attendre la CI verte**, puis **Jira → En revue**, commentaire modèle C (lien PR + étapes pour tester).
-11. **Me faire signe** : « K48-n prêt en revue : <lien PR>. Pour tester : … ». **S'arrêter là.**
-12. **Après mon accord** (« OK K48-n » dans le chat, ou PR approuvée sur GitHub) :
-    `gh pr merge <n> --merge --delete-branch` (**merge commit, jamais squash** : l'historique atomique est noté).
-    Puis **Jira → Prêt à tester**, commentaire modèle D (hash du merge).
-13. **Si je refuse** avec un commentaire : revenir au statut concerné, corriger sur la même branche, repousser, reprendre à l'étape 10.
+10. **Revue autonome** : exécuter les vérifications applicables, relire le diff et contrôler les critères d'acceptation, puis Jira → En revue.
+11. Si elle passe : `gh pr merge <n> --merge --delete-branch` (**merge commit, jamais squash**) puis Jira → Prêt à tester avec le hash.
+12. Lancer la recette automatisée sur `main`, puis Jira → Terminé. En cas d'échec, créer et lier un ticket Bug, corriger sur une branche `fix/` et reprendre la revue.
 
 ## 5. Conventions Git
 
@@ -98,8 +95,7 @@ Avant chaque jalon, l'humain teste **tous** les tickets « Prêt à tester » su
 - Exposer une entité JPA en JSON, appeler un repository depuis un contrôleur.
 - Recalculer une règle métier dans le frontend (la moyenne vient de l'API).
 - Commiter `target/`, `node_modules/`, `dist/`, `.env` ou un secret.
-- Fusionner une PR sans accord humain, ou avec une CI rouge.
-- Déplacer un ticket vers « Terminé ».
+- Fusionner une PR dont la revue autonome ou les vérifications applicables échouent.
 
 ## 9. Commande spéciale : « synchronise le backlog »
 

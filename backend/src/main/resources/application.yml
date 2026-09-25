@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: k48-backend
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:k48;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  jackson:
+    deserialization:
+      accept-float-as-int: false
+      fail-on-unknown-properties: true
+  web:
+    resources:
+      add-mappings: false
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /api/contrat.yaml
