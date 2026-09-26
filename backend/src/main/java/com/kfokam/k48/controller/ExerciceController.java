@@ -36,14 +36,13 @@ public class ExerciceController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> remplacerLien(
+    public ExerciceResponse remplacerLien(
             @PathVariable Long id,
             @RequestHeader(value = "X-Etudiant-Id", required = false) Long etudiantId,
             @Valid @RequestBody RemplacerLienRequete requete) {
         if (etudiantId == null) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "IDENTITE_MANQUANTE", "L'en-tête X-Etudiant-Id est requis.");
         }
-        exerciceService.remplacerLien(id, etudiantId, requete);
-        return ResponseEntity.ok().build();
+        return exerciceService.remplacerLien(id, etudiantId, requete);
     }
 }

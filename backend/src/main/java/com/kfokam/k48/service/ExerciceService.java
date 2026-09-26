@@ -137,7 +137,7 @@ public class ExerciceService {
      * n'est pas clôturée (RG20). RG2/RG15-esprit : seul l'auteur, identifié par X-Etudiant-Id.
      */
     @Transactional
-    public void remplacerLien(Long exerciceId, Long etudiantIdAppelant, RemplacerLienRequete requete) {
+    public ExerciceResponse remplacerLien(Long exerciceId, Long etudiantIdAppelant, RemplacerLienRequete requete) {
         validerLien(requete.lien());
 
         Exercice exercice = exerciceRepository.findById(exerciceId)
@@ -159,6 +159,7 @@ public class ExerciceService {
         }
 
         exercice.setLien(requete.lien());
+        return ExerciceResponse.from(exercice);
     }
 
     private void validerLien(String lien) {

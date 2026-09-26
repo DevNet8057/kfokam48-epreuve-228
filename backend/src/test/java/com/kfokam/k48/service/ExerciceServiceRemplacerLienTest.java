@@ -93,9 +93,10 @@ class ExerciceServiceRemplacerLienTest {
         when(relectureRepository.findByExercice_Id(100L)).thenReturn(
                 List.of(new Relecture(exercice, etudiant(2L))));
 
-        exerciceService.remplacerLien(100L, 1L, new RemplacerLienRequete("https://exemple.test/nouveau"));
+        var reponse = exerciceService.remplacerLien(100L, 1L, new RemplacerLienRequete("https://exemple.test/nouveau"));
 
         assertThat(exercice.getLien()).isEqualTo("https://exemple.test/nouveau");
+        assertThat(reponse.id()).isEqualTo(100L);
     }
 
     @Test
