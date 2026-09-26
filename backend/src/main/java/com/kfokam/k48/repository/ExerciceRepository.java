@@ -13,4 +13,7 @@ public interface ExerciceRepository extends JpaRepository<Exercice, Long> {
 
     /** RG13 : exercices d'une session, pour retenter l'attribution des relecteurs. */
     List<Exercice> findBySessionId(Long sessionId);
+
+    /** EF11 : exercices déposés par un étudiant, le plus récent d'abord. */
+    List<Exercice> findByAuteurIdOrderByDeposeAtDesc(Long auteurId);
 }

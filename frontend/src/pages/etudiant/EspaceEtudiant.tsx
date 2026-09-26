@@ -1,8 +1,15 @@
 import { MarquerPresence } from "./MarquerPresence";
+import { MesExercices } from "./MesExercices";
 
 /**
- * Espace étudiant (F2). Dépôt d'exercice et note reçue arrivent avec K48-7 et K48-14.
+ * Espace étudiant (F2) : marquer sa présence et déposer un exercice (MarquerPresence),
+ * consulter la note reçue (EF11, K48-14).
  */
 export function EspaceEtudiant() {
-  return <MarquerPresence />;
+  return (
+    <>
+      <MarquerPresence />
+      <MesExercices />
+    </>
+  );
 }

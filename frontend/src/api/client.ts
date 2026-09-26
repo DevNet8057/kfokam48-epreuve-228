@@ -144,6 +144,17 @@ export interface SessionResume {
   clotureAt: string | null;
 }
 
+export interface MonExercice {
+  id: number;
+  sessionId: number;
+  titreSession: string;
+  lien: string;
+  statut: "SANS_RELECTEUR" | "EN_ATTENTE_RELECTURE" | "EN_COURS_RELECTURE" | "RELU";
+  note: number | null;
+  provisoire: boolean;
+  commentaires: string[];
+}
+
 export const api = {
   ouvrirSession: (donnees: OuvrirSessionRequete) =>
     requete<SessionOuverte>("POST", "/api/sessions", donnees),
@@ -168,4 +179,6 @@ export const api = {
     requete<Presence>("POST", `/api/sessions/${sessionId}/presences`, { etudiantId }),
   cloturerSession: (sessionId: number) =>
     requete<SessionResume>("POST", `/api/sessions/${sessionId}/cloture`),
+  listerMesExercices: (etudiantId: number) =>
+    requete<MonExercice[]>("GET", `/api/etudiants/${etudiantId}/exercices`),
 };

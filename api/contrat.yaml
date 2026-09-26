@@ -475,7 +475,12 @@ paths:
       operationId: listerExercicesDeLEtudiant
       responses:
         "200":
-          description: Exercices de l'étudiant
+          description: Exercices de l'étudiant, le plus récent d'abord
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MonExercice" }
         "404":
           description: Étudiant inconnu
           content:
@@ -532,6 +537,20 @@ components:
         sessionId: { type: integer, format: int64 }
         etudiantId: { type: integer, format: int64 }
         source: { type: string, enum: [ETUDIANT, FORMATEUR] }
+    MonExercice:
+      description: >-
+        RG17 : aucun champ n'identifie les relecteurs. RG18 v2 : note = moyenne des relectures
+        rendues ; provisoire=true tant qu'un relecteur assigné n'a pas encore rendu.
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        sessionId: { type: integer, format: int64 }
+        titreSession: { type: string }
+        lien: { type: string }
+        statut: { type: string, enum: [SANS_RELECTEUR, EN_ATTENTE_RELECTURE, EN_COURS_RELECTURE, RELU] }
+        note: { type: number, nullable: true }
+        provisoire: { type: boolean }
+        commentaires: { type: array, items: { type: string } }
     Promotion:
       type: object
       properties:

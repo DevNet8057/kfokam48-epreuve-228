@@ -7,6 +7,8 @@ import com.kfokam.k48.domain.SessionCours;
 import com.kfokam.k48.domain.StatutExercice;
 import com.kfokam.k48.dto.DeposerExerciceRequete;
 import com.kfokam.k48.dto.ExerciceResponse;
+import com.kfokam.k48.dto.MonExerciceResponse;
+import java.util.Objects;
 import com.kfokam.k48.error.BusinessException;
 import com.kfokam.k48.repository.EtudiantRepository;
 import com.kfokam.k48.repository.ExerciceRepository;
@@ -93,6 +95,40 @@ public class ExerciceService {
         }
 
         return ExerciceResponse.from(exercice);
+    }
+
+    /**
+     * EF11 : exercices de l'étudiant avec la note reçue. RG17 : jamais l'identité des relecteurs.
+     * RG18 v2 : moyenne des notes rendues ; provisoire si un relecteur assigné n'a pas encore rendu.
+     */
+    @Transactional(readOnly = true)
+    public List<MonExerciceResponse> listerExercicesDeLEtudiant(Long etudiantId) {
+        if (!etudiantRepository.existsById(etudiantId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "ETUDIANT_INCONNU", "Cet étudiant n'existe pas.");
+        }
+        return exerciceRepository.findByAuteurIdOrderByDeposeAtDesc(etudiantId).stream()
+                .map(this::versMonExercice)
+                .toList();
+    }
+
+    private MonExerciceResponse versMonExercice(Exercice exercice) {
+        List<Relecture> relectures = relectureRepository.findByExercice_Id(exercice.getId());
+        List<Relecture> rendues = relectures.stream().filter(r -> r.getRendueAt() != null).toList();
+        List<Integer> notes = rendues.stream().map(Relecture::getNote).filter(Objects::nonNull).toList();
+        Double note = notes.isEmpty()
+                ? null
+                : Math.round(notes.stream().mapToInt(Integer::intValue).average().orElse(0) * 100.0) / 100.0;
+        boolean provisoire = !notes.isEmpty() && rendues.size() < relectures.size();
+        List<String> commentaires = rendues.stream().map(Relecture::getCommentaire).filter(Objects::nonNull).toList();
+        return new MonExerciceResponse(
+                exercice.getId(),
+                exercice.getSession().getId(),
+                exercice.getSession().getTitre(),
+                exercice.getLien(),
+                exercice.getStatut().name(),
+                note,
+                provisoire,
+                commentaires);
     }
 
     private void validerLien(String lien) {
