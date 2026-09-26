@@ -20,8 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * EF3 : l'étudiant marque sa présence avec le code. Règles RG1 (expiration), RG5 (une seule
  * présence), RG6/H4 (code de sa promotion uniquement), RG21 (clôture rend le code inutilisable).
- * Ordre des contrôles conforme au diagramme de séquence D3 (handoff §6.5).
- * RG13 (attribution d'un relecteur) sera complétée avec K48-7, quand les exercices existeront.
+ * RG7 (K48-11) : le blocage est vérifié avant la recherche du code, sinon il ne protège rien ;
+ * seul un code inconnu compte comme échec (H5). Ordre des contrôles conforme au diagramme D3.
  */
 @Service
 public class PresenceService {
@@ -29,16 +29,19 @@ public class PresenceService {
     private final EtudiantRepository etudiantRepository;
     private final SessionCoursRepository sessionCoursRepository;
     private final PresenceRepository presenceRepository;
+    private final TentativeCodeService tentativeCodeService;
     private final Clock clock;
 
     public PresenceService(
             EtudiantRepository etudiantRepository,
             SessionCoursRepository sessionCoursRepository,
             PresenceRepository presenceRepository,
+            TentativeCodeService tentativeCodeService,
             Clock clock) {
         this.etudiantRepository = etudiantRepository;
         this.sessionCoursRepository = sessionCoursRepository;
         this.presenceRepository = presenceRepository;
+        this.tentativeCodeService = tentativeCodeService;
         this.clock = clock;
     }
 
@@ -49,11 +52,17 @@ public class PresenceService {
                 // sans étudiant valide, la promotion ne peut pas être résolue -> CODE_INCONNU.
                 .orElseThrow(this::codeInconnu);
 
+        tentativeCodeService.verifierNonBloque(etudiant.getId());
+
         String code = requete.code().trim().toUpperCase();
 
         SessionCours session = sessionCoursRepository
                 .findFirstByCodeAndPromotionIdOrderByOuvertureAtDesc(code, etudiant.getPromotion().getId())
-                .orElseThrow(this::codeInconnu);
+                .orElse(null);
+        if (session == null) {
+            tentativeCodeService.enregistrerEchec(etudiant.getId());
+            throw codeInconnu();
+        }
 
         Instant maintenant = clock.instant();
         if (session.getClotureAt() != null || maintenant.isAfter(session.getExpirationAt())) {
@@ -67,6 +76,7 @@ public class PresenceService {
         try {
             Presence presence = presenceRepository.save(
                     new Presence(session, etudiant, SourcePresence.ETUDIANT, maintenant));
+            tentativeCodeService.reinitialiser(etudiant.getId());
             return PresenceResponse.from(presence);
         } catch (DataIntegrityViolationException race) {
             // ENF6 : deux envois simultanés ne doivent jamais produire un 500.

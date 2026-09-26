@@ -16,16 +16,20 @@ export function MarquerPresence() {
   const { identite } = useIdentite();
   const [chargement, setChargement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [bloque, setBloque] = useState(false);
   const [sessionId, setSessionId] = useState<number | null>(null);
 
   async function marquerPresence(valeurs: FormValues) {
     if (!identite?.etudiantId) return;
     setChargement(true);
     setErreur(null);
+    setBloque(false);
     try {
       const presence = await api.marquerPresence({ code: valeurs.code, etudiantId: identite.etudiantId });
       setSessionId(presence.sessionId);
     } catch (cause) {
+      // RG7 : pendant le blocage, le message de l'API indique le temps restant.
+      setBloque(cause instanceof ErreurApi && cause.code === "TROP_DE_TENTATIVES");
       setErreur(cause instanceof ErreurApi ? cause.message : "Une erreur inattendue est survenue.");
     } finally {
       setChargement(false);
@@ -59,7 +63,15 @@ export function MarquerPresence() {
         </Form.Item>
       </Form>
       {chargement && <Spin />}
-      {erreur && <Alert type="error" message={erreur} showIcon style={{ marginTop: 16 }} />}
+      {erreur && (
+        <Alert
+          type={bloque ? "warning" : "error"}
+          message={bloque ? "Trop de codes erronés" : erreur}
+          description={bloque ? erreur : undefined}
+          showIcon
+          style={{ marginTop: 16 }}
+        />
+      )}
     </Card>
   );
 }
