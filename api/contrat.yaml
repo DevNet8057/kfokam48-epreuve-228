@@ -405,7 +405,10 @@ paths:
       operationId: cloturerSession
       responses:
         "200":
-          description: Session clôturée
+          description: Session clôturée (clotureAt renseigné)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResume" }
         "404":
           description: Session inconnue
           content:
