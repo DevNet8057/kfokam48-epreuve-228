@@ -57,3 +57,4 @@ Chargées par la migration `V2__donnees_demo.sql` : une promotion (`id=1`) et tr
 cd backend
 ./mvnw test
 ```
+# test
