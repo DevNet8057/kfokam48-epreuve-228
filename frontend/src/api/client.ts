@@ -181,4 +181,6 @@ export const api = {
     requete<SessionResume>("POST", `/api/sessions/${sessionId}/cloture`),
   listerMesExercices: (etudiantId: number) =>
     requete<MonExercice[]>("GET", `/api/etudiants/${etudiantId}/exercices`),
+  remplacerLien: (exerciceId: number, lien: string) =>
+    requete<Exercice>("PUT", `/api/exercices/${exerciceId}`, { lien }),
 };
