@@ -65,6 +65,11 @@ public class Exercice {
         return lien;
     }
 
+    /** EF12 / RG16 : remplaçable tant qu'aucune relecture n'a commencé et session non clôturée. */
+    public void setLien(String lien) {
+        this.lien = lien;
+    }
+
     public StatutExercice getStatut() {
         return statut;
     }

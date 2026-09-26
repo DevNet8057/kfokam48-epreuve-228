@@ -9,6 +9,7 @@ import com.kfokam.k48.dto.DeposerExerciceRequete;
 import com.kfokam.k48.dto.ExerciceResponse;
 import com.kfokam.k48.dto.MonExerciceResponse;
 import java.util.Objects;
+import com.kfokam.k48.dto.RemplacerLienRequete;
 import com.kfokam.k48.error.BusinessException;
 import com.kfokam.k48.repository.EtudiantRepository;
 import com.kfokam.k48.repository.ExerciceRepository;
@@ -129,6 +130,35 @@ public class ExerciceService {
                 note,
                 provisoire,
                 commentaires);
+    }
+
+    /**
+     * EF12 : remplacer le lien tant qu'aucune relecture n'a commencé (RG16) et que la session
+     * n'est pas clôturée (RG20). RG2/RG15-esprit : seul l'auteur, identifié par X-Etudiant-Id.
+     */
+    @Transactional
+    public void remplacerLien(Long exerciceId, Long etudiantIdAppelant, RemplacerLienRequete requete) {
+        validerLien(requete.lien());
+
+        Exercice exercice = exerciceRepository.findById(exerciceId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "EXERCICE_INCONNU", "Cet exercice n'existe pas."));
+
+        if (!exercice.getAuteur().getId().equals(etudiantIdAppelant)) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "PAS_AUTEUR", "Vous n'êtes pas l'auteur de cet exercice.");
+        }
+
+        if (exercice.getSession().getClotureAt() != null) {
+            throw new BusinessException(HttpStatus.CONFLICT, "REMPLACEMENT_IMPOSSIBLE", "Cette session est clôturée.");
+        }
+
+        boolean relectureCommencee = relectureRepository.findByExercice_Id(exercice.getId()).stream()
+                .anyMatch(relecture -> relecture.getOuverteAt() != null);
+        if (relectureCommencee) {
+            throw new BusinessException(HttpStatus.CONFLICT, "REMPLACEMENT_IMPOSSIBLE",
+                    "Un relecteur a déjà commencé à relire cet exercice.");
+        }
+
+        exercice.setLien(requete.lien());
     }
 
     private void validerLien(String lien) {
