@@ -82,4 +82,9 @@ public class SessionCours {
     public Instant getClotureAt() {
         return clotureAt;
     }
+
+    /** EF13 / RG20 : clôture irréversible. */
+    public void cloturer(Instant maintenant) {
+        this.clotureAt = maintenant;
+    }
 }

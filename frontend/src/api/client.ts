@@ -166,4 +166,6 @@ export const api = {
     requete<SessionResume[]>("GET", `/api/sessions?promotionId=${promotionId}`),
   ajouterPresenceManuelle: (sessionId: number, etudiantId: number) =>
     requete<Presence>("POST", `/api/sessions/${sessionId}/presences`, { etudiantId }),
+  cloturerSession: (sessionId: number) =>
+    requete<SessionResume>("POST", `/api/sessions/${sessionId}/cloture`),
 };
