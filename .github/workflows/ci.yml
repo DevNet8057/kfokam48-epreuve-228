@@ -2,6 +2,8 @@ name: CI
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 jobs:
   backend:
@@ -33,7 +35,11 @@ jobs:
         if: ${{ hashFiles('frontend/package.json') != '' }}
         with:
           node-version: "20"
+      - name: Tests frontend
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        working-directory: frontend
+        run: npm ci && npm test
       - name: Build frontend
         if: ${{ hashFiles('frontend/package.json') != '' }}
         working-directory: frontend
-        run: npm ci && npm run build
+        run: npm run build
