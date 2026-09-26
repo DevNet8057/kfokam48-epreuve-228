@@ -1,43 +1,54 @@
-# D3 — Séquence : marquer sa présence (EF3)
+# D3 — Séquence : marquer sa présence (EF3, EF4)
 
-Ordre des contrôles réellement implémenté dans `PresenceService.marquerPresence` (RG1, RG5, RG6, RG21).
+Ordre des contrôles réellement implémenté dans `PresenceService.marquerPresence` (RG1, RG5, RG6,
+RG7, RG21). Chaque réponse correspond au code HTTP du contrat `POST /api/presences`.
+
+**Mis à jour à l'étape 4 (K48-11)** : le blocage après cinq codes inconnus (RG7) est vérifié
+**avant** la recherche du code — sinon il ne protégerait rien — et seul un code inconnu compte
+comme échec (H5).
 
 ```mermaid
 sequenceDiagram
     actor E as Étudiant
-    participant C as PresenceController
+    participant F as Front
+    participant API as PresenceController
     participant S as PresenceService
-    participant DB as Base (contrainte UNIQUE)
+    participant T as TentativeCodeService
+    participant DB as Base
 
-    E->>C: POST /api/presences { code, etudiantId }
-    C->>S: marquerPresence(requete)
-    S->>S: Valider le DTO (@Valid)
-    alt champ manquant
-        S-->>C: 400 CHAMP_MANQUANT
+    E->>F: saisit le code
+    F->>API: POST /api/presences { code, etudiantId }
+    API->>S: marquerPresence(requete)
+    alt champ manquant (validation)
+        API-->>F: 400 { code: "CHAMP_MANQUANT" }
     end
-    S->>DB: Chercher l'étudiant
-    alt étudiant introuvable
-        S-->>C: 400 CODE_INCONNU
+    S->>DB: chercher l'étudiant
+    S->>T: verifierNonBloque(etudiantId)
+    alt bloqué depuis moins de 2 min (RG7)
+        T-->>S: TROP_DE_TENTATIVES
+        S-->>API: exception
+        API-->>F: 429 { code: "TROP_DE_TENTATIVES" }
     end
-    S->>DB: Chercher la session par (code, promotion de l'étudiant)
-    alt aucune session (code inconnu ou autre promotion, H4)
-        S-->>C: 400 CODE_INCONNU
+    S->>DB: session par (code, promotion de l'étudiant)
+    alt code inconnu ou d'une autre promotion (RG6, H4)
+        S->>T: enregistrerEchec(etudiantId) — 5e échec : blocage 2 min
+        S-->>API: exception
+        API-->>F: 400 { code: "CODE_INCONNU" }
+    else code expiré ou session clôturée (RG1, RG21)
+        S-->>API: exception
+        API-->>F: 410 { code: "CODE_EXPIRE" }
+    else étudiant déjà présent (RG5)
+        S-->>API: exception
+        API-->>F: 409 { code: "DEJA_PRESENT" }
+    else cas nominal
+        S->>DB: INSERT presence (UNIQUE session/étudiant, ENF6)
+        alt envoi simultané refusé par la contrainte UNIQUE
+            DB-->>S: violation de contrainte
+            API-->>F: 409 { code: "DEJA_PRESENT" } (jamais 500)
+        else insertion réussie
+            S->>T: reinitialiser(etudiantId)
+            S-->>API: Presence
+            API-->>F: 201 { id, sessionId, etudiantId, source: "ETUDIANT" }
+        end
     end
-    S->>S: Vérifier expiration/clôture (RG1, RG21)
-    alt expirée ou clôturée
-        S-->>C: 410 CODE_EXPIRE
-    end
-    S->>DB: Vérifier présence déjà existante (RG5)
-    alt déjà présent
-        S-->>C: 409 DEJA_PRESENT
-    end
-    S->>DB: INSERT presence (protégé par UNIQUE, ENF6)
-    alt violation de contrainte (envoi simultané)
-        DB-->>S: DataIntegrityViolationException
-        S-->>C: 409 DEJA_PRESENT (jamais 500)
-    else succès
-        DB-->>S: OK
-        S-->>C: 201 { id, sessionId, etudiantId, source=ETUDIANT }
-    end
-    C-->>E: Réponse
 ```
