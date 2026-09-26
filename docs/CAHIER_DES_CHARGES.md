@@ -126,6 +126,7 @@ promotion, internationalisation.
 | H12 — Exercices en attente | Q11 | Champ `exercicesEnAttente` ajouté au tableau | Rend Q11 visible sans modifier les champs imposés |
 | H13 — Usurpation d'identité | Q1 | Risque accepté, hors périmètre | Q1 : « ne perdez pas de temps là-dessus » |
 | H14 — Référence inconnue | Non précisé | Dans le corps → `400` + code dédié ; dans l'URL → `404` + code dédié | Convention REST cohérente avec le contrat |
+| H15 — Second relecteur arrivé tard (C2 + RG13) | Non précisé | Un exercice encore non relu reçoit son second relecteur à la prochaine présence ; un exercice déjà RELU par un relecteur unique n'en reçoit pas de second | Ne pas rouvrir une note déjà publiée à l'étudiant (RG14) |
 
 ## 8. Contraintes techniques
 

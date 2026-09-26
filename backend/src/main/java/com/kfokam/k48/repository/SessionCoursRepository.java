@@ -12,6 +12,8 @@ public interface SessionCoursRepository extends JpaRepository<SessionCours, Long
 
     List<SessionCours> findByPromotionIdOrderByOuvertureAtAsc(Long promotionId);
 
+    List<SessionCours> findByPromotionIdOrderByOuvertureAtDesc(Long promotionId);
+
     @Query("""
             select case when count(s) > 0 then true else false end
             from SessionCours s

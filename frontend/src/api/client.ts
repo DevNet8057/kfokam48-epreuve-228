@@ -135,6 +135,15 @@ export interface LigneTableau {
   exercicesEnAttente: number;
 }
 
+export interface SessionResume {
+  id: number;
+  titre: string;
+  code: string;
+  ouvertureAt: string;
+  expirationAt: string;
+  clotureAt: string | null;
+}
+
 export const api = {
   ouvrirSession: (donnees: OuvrirSessionRequete) =>
     requete<SessionOuverte>("POST", "/api/sessions", donnees),
@@ -153,4 +162,8 @@ export const api = {
     requete<void>("POST", `/api/relectures/${relectureId}`, donnees),
   obtenirTableau: (promotionId: number) =>
     requete<LigneTableau[]>("GET", `/api/tableau?promotionId=${promotionId}`),
+  listerSessions: (promotionId: number) =>
+    requete<SessionResume[]>("GET", `/api/sessions?promotionId=${promotionId}`),
+  ajouterPresenceManuelle: (sessionId: number, etudiantId: number) =>
+    requete<Presence>("POST", `/api/sessions/${sessionId}/presences`, { etudiantId }),
 };

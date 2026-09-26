@@ -4,6 +4,8 @@ import com.kfokam.k48.domain.Promotion;
 import com.kfokam.k48.domain.SessionCours;
 import com.kfokam.k48.dto.CreateSessionRequest;
 import com.kfokam.k48.dto.SessionResponse;
+import com.kfokam.k48.dto.SessionResumeResponse;
+import java.util.List;
 import com.kfokam.k48.error.BusinessException;
 import com.kfokam.k48.repository.PromotionRepository;
 import com.kfokam.k48.repository.SessionCoursRepository;
@@ -51,6 +53,17 @@ public class SessionService {
 
         SessionCours session = new SessionCours(requete.titre(), promotion, code, ouvertureAt, expirationAt);
         return SessionResponse.from(sessionCoursRepository.save(session));
+    }
+
+    /** Sessions d'une promotion, la plus récente d'abord (écran formateur : présence manuelle, clôture). */
+    @Transactional(readOnly = true)
+    public List<SessionResumeResponse> listerSessions(Long promotionId) {
+        if (!promotionRepository.existsById(promotionId)) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "PROMOTION_INCONNUE", "Cette promotion n'existe pas.");
+        }
+        return sessionCoursRepository.findByPromotionIdOrderByOuvertureAtDesc(promotionId).stream()
+                .map(SessionResumeResponse::from)
+                .toList();
     }
 
     private String genererCodeUnique() {

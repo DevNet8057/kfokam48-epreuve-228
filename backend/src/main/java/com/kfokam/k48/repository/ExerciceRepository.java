@@ -10,4 +10,7 @@ public interface ExerciceRepository extends JpaRepository<Exercice, Long> {
 
     /** K48-10 : tous les exercices déposés par les étudiants d'une promotion, en un aller. */
     List<Exercice> findByAuteurIdIn(List<Long> auteurIds);
+
+    /** RG13 : exercices d'une session, pour retenter l'attribution des relecteurs. */
+    List<Exercice> findBySessionId(Long sessionId);
 }
