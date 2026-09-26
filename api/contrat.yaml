@@ -443,6 +443,9 @@ paths:
       responses:
         "200":
           description: Lien remplacé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Exercice" }
         "400":
           description: Lien invalide
           content:
@@ -551,6 +554,11 @@ components:
         note: { type: number, nullable: true }
         provisoire: { type: boolean }
         commentaires: { type: array, items: { type: string } }
+    Exercice:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        statut: { type: string, enum: [SANS_RELECTEUR, EN_ATTENTE_RELECTURE, EN_COURS_RELECTURE, RELU] }
     Promotion:
       type: object
       properties:
