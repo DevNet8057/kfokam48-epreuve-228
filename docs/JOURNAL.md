@@ -48,7 +48,24 @@ ce qui a permis de détecter les deux bugs ci-dessus qu'une recette purement H2 
 
 ## Étape 3 — Enveloppe
 
-*(à compléter à réception de l'enveloppe)*
+**Fait** : bug client (« deux étudiants, un seul apparaît ») → issue #39 / K48-26 ouverte avant tout
+code, test Vitest qui échoue (commit rouge `456de84`) puis correctif (rafraîchissement automatique du
+tableau), PR #40. Changement de besoin (deux relecteurs, moyenne, note provisoire) → issue #41 /
+K48-27 : analyse mise à jour d'abord (RG12, RG13, RG18, C2, D4), contrat documenté, migration V3
+ajoutée, code, PR #42. Correctif et évolution sur deux branches et deux PR distinctes. Sacrifice
+écrit : l'écran « note provisoire » (EF11) reporté à l'étape 4.
+
+**Bloqué** : ~40 min sur le diagnostic du bug. Hypothèse initiale (course entre deux `POST
+/api/presences`) réfutée par l'expérience : deux requêtes concurrentes réelles contre PostgreSQL
+passent toutes les deux (201/201) et une double soumission donne bien 201 puis 409. La vraie cause
+était l'absence de rafraîchissement du tableau formateur. ~30 min aussi sur la migration V3 : le nom
+de la contrainte UNIQUE générée par V1 diffère entre H2 et PostgreSQL, d'où une migration Java qui le
+retrouve dans `information_schema`.
+
+**IA** : l'IA proposait d'emblée une correction de concurrence côté serveur. Vérifié en rejouant le
+scénario en vrai (curl parallèles contre Docker/PostgreSQL, comptage en base) avant d'écrire une ligne :
+l'hypothèse était fausse, ce qui a évité de « corriger » un code correct. Migration V3 vérifiée sur
+les deux moteurs : tests H2 verts, puis `docker compose up` et contrôle des lignes `relecture` en base.
 
 ## Étape 4 — Version 1.0
 
