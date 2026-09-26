@@ -62,8 +62,10 @@ class ExerciceServiceTest {
     @BeforeEach
     void demarrer() {
         Clock horlogeFixe = Clock.fixed(MAINTENANT, ZoneOffset.UTC);
+        AttributionService attributionService =
+                new AttributionService(presenceRepository, relectureRepository, exerciceRepository, etudiantRepository);
         exerciceService = new ExerciceService(
-                sessionCoursRepository, etudiantRepository, exerciceRepository, presenceRepository, relectureRepository, horlogeFixe);
+                sessionCoursRepository, etudiantRepository, exerciceRepository, relectureRepository, attributionService, horlogeFixe);
     }
 
     private Etudiant creerEtudiant(long id, Promotion promotion) throws Exception {

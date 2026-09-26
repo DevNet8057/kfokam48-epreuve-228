@@ -10,15 +10,11 @@ import com.kfokam.k48.dto.ExerciceResponse;
 import com.kfokam.k48.error.BusinessException;
 import com.kfokam.k48.repository.EtudiantRepository;
 import com.kfokam.k48.repository.ExerciceRepository;
-import com.kfokam.k48.repository.PresenceRepository;
 import com.kfokam.k48.repository.RelectureRepository;
 import com.kfokam.k48.repository.SessionCoursRepository;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.SecureRandom;
 import java.time.Clock;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import org.springframework.http.HttpStatus;
@@ -38,23 +34,22 @@ public class ExerciceService {
     private final SessionCoursRepository sessionCoursRepository;
     private final EtudiantRepository etudiantRepository;
     private final ExerciceRepository exerciceRepository;
-    private final PresenceRepository presenceRepository;
     private final RelectureRepository relectureRepository;
+    private final AttributionService attributionService;
     private final Clock clock;
-    private final SecureRandom random = new SecureRandom();
 
     public ExerciceService(
             SessionCoursRepository sessionCoursRepository,
             EtudiantRepository etudiantRepository,
             ExerciceRepository exerciceRepository,
-            PresenceRepository presenceRepository,
             RelectureRepository relectureRepository,
+            AttributionService attributionService,
             Clock clock) {
         this.sessionCoursRepository = sessionCoursRepository;
         this.etudiantRepository = etudiantRepository;
         this.exerciceRepository = exerciceRepository;
-        this.presenceRepository = presenceRepository;
         this.relectureRepository = relectureRepository;
+        this.attributionService = attributionService;
         this.clock = clock;
     }
 
@@ -84,7 +79,8 @@ public class ExerciceService {
 
         Exercice exercice = new Exercice(session, auteur, requete.lien(), StatutExercice.SANS_RELECTEUR, clock.instant());
 
-        List<Long> relecteurIds = tirerRelecteurs(session.getId(), auteur.getId());
+        List<Long> relecteurIds = attributionService.tirerRelecteurs(
+                session.getId(), Set.of(auteur.getId()), AttributionService.NOMBRE_RELECTEURS);
         if (!relecteurIds.isEmpty()) {
             exercice.setStatut(StatutExercice.EN_ATTENTE_RELECTURE);
         }
@@ -97,38 +93,6 @@ public class ExerciceService {
         }
 
         return ExerciceResponse.from(exercice);
-    }
-
-    /**
-     * RG12 v2 (C2, étape 3) : jusqu'à DEUX relecteurs distincts, parmi les présents autres que
-     * l'auteur, les moins chargés en priorité, tirage au hasard en cas d'égalité. Un seul candidat
-     * disponible -> un seul relecteur tiré (le second sera retenté à la prochaine présence, RG13).
-     */
-    private static final int NOMBRE_RELECTEURS = 2;
-
-    private List<Long> tirerRelecteurs(Long sessionId, Long auteurId) {
-        List<Long> candidats = new ArrayList<>(presenceRepository.trouverIdsEtudiantsPresents(sessionId).stream()
-                .distinct()
-                .filter(id -> !id.equals(auteurId))
-                .toList());
-
-        List<Long> retenus = new ArrayList<>();
-        for (int i = 0; i < NOMBRE_RELECTEURS && !candidats.isEmpty(); i++) {
-            long chargeMinimale = candidats.stream()
-                    .mapToLong(relectureRepository::countByRelecteurId)
-                    .min()
-                    .orElse(0);
-
-            List<Long> moinsCharges = candidats.stream()
-                    .filter(id -> relectureRepository.countByRelecteurId(id) == chargeMinimale)
-                    .sorted(Comparator.naturalOrder())
-                    .toList();
-
-            Long tire = moinsCharges.get(random.nextInt(moinsCharges.size()));
-            retenus.add(tire);
-            candidats.remove(tire);
-        }
-        return retenus;
     }
 
     private void validerLien(String lien) {
