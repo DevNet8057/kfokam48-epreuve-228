@@ -69,8 +69,38 @@ les deux moteurs : tests H2 verts, puis `docker compose up` et contrôle des lig
 
 ## Étape 4 — Version 1.0
 
-*(à compléter)*
+**Fait** : les 5 stories Should/Could restantes enchaînées jusqu'à Terminé : K48-11 (blocage 2 min
+après 5 codes inconnus, horloge déplacée en test), K48-12 (présence manuelle par le formateur +
+nouvelle tentative d'attribution RG13), K48-13 (clôture de session, irréversible), K48-14 (note et
+commentaire reçus, jamais l'identité du relecteur — RG17), K48-15 (remplacement du lien tant qu'aucune
+relecture n'est ouverte — RG16/RG20). Chaque story : branche dédiée, tests unitaires ciblés sur sa
+règle de gestion, `./mvnw test` et `npm run build` verts avant fusion, PR avec `Closes #n`, merge
+commit, recette rejouée sur `main`, transitions Jira jusqu'à Terminé avec commentaire de preuve. Deux
+bugs supplémentaires trouvés et corrigés par la même discipline rouge/vert que l'étape 3 :
+- **K48-29** : sous H2 (tests), un exercice ne pouvait toujours pas avoir deux relecteurs après la
+  migration V3, alors que PostgreSQL réel l'acceptait. Cause : H2 laisse vivre l'index unique
+  `exercice_id` porté par la clé étrangère même après la suppression de la contrainte nommée. Migration
+  Java V4 ajoutée (jamais de modification de V3), portable via `DatabaseMetaData` (no-op sur
+  PostgreSQL, vérifié par `docker exec ... psql`).
+- **K48-30** : en rejouant la recette de K48-15 dans un vrai navigateur (et non plus seulement en
+  `curl`), tout appel de l'écran React vers l'API échouait (préflight CORS bloqué, 403). Un fichier de
+  correctif (`WebConfiguration`) existait déjà sur le disque mais n'avait jamais été committé —
+  retrouvé en fichier non suivi de `git status`. Issue #54 / K48-30 ouverte, test rouge (fichier
+  temporairement retiré, 403 reproduit) puis vert (fichier restauré et committé, 60/60 tests, vérifié
+  en navigateur réel).
+
+**Bloqué** : aucun blocage technique notable sur les stories elles-mêmes. Le principal risque identifié
+a posteriori est méthodologique : les bugs K48-29 et K48-30 n'ont été détectés qu'en poussant la
+vérification au-delà des tests automatisés (respectivement un second moteur de base de données réel,
+et un vrai navigateur plutôt que `curl`) — signe que la recette « tests verts » seule ne suffit pas à
+garantir un produit qui fonctionne en conditions réelles.
+
+**IA** : pour chacune des 5 stories, le test a été écrit pour la règle de gestion la plus stricte du
+ticket (ex. K48-14 : assertion explicite qu'aucune chaîne « relecteur » n'apparaît dans le corps de la
+réponse JSON). Les deux bugs K48-29/K48-30 ont été trouvés en continuant la méthode de l'étape 3
+(vérifier en conditions réelles avant de déclarer une story terminée), pas par relecture de code seule.
 
 ## Étape 5 — Soumission
 
-*(à compléter)*
+**Fait** : voir `SOUMISSION.md` à la racine pour l'état final (dépôt, commit, choix technique,
+commande de démarrage).
