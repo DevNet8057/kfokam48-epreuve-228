@@ -30,6 +30,7 @@ public class PresenceService {
     private final SessionCoursRepository sessionCoursRepository;
     private final PresenceRepository presenceRepository;
     private final TentativeCodeService tentativeCodeService;
+    private final AttributionService attributionService;
     private final Clock clock;
 
     public PresenceService(
@@ -37,11 +38,13 @@ public class PresenceService {
             SessionCoursRepository sessionCoursRepository,
             PresenceRepository presenceRepository,
             TentativeCodeService tentativeCodeService,
+            AttributionService attributionService,
             Clock clock) {
         this.etudiantRepository = etudiantRepository;
         this.sessionCoursRepository = sessionCoursRepository;
         this.presenceRepository = presenceRepository;
         this.tentativeCodeService = tentativeCodeService;
+        this.attributionService = attributionService;
         this.clock = clock;
     }
 
@@ -73,15 +76,51 @@ public class PresenceService {
             throw dejaPresent();
         }
 
+        Presence presence;
         try {
-            Presence presence = presenceRepository.save(
-                    new Presence(session, etudiant, SourcePresence.ETUDIANT, maintenant));
-            tentativeCodeService.reinitialiser(etudiant.getId());
-            return PresenceResponse.from(presence);
+            presence = presenceRepository.save(new Presence(session, etudiant, SourcePresence.ETUDIANT, maintenant));
         } catch (DataIntegrityViolationException race) {
             // ENF6 : deux envois simultanés ne doivent jamais produire un 500.
             throw dejaPresent();
         }
+        tentativeCodeService.reinitialiser(etudiant.getId());
+        attributionService.retenterAttribution(session);
+        return PresenceResponse.from(presence);
+    }
+
+    /**
+     * EF5 : le formateur ajoute une présence à la main. RG8 : jusqu'à la clôture, même code expiré
+     * (H6), avec source = FORMATEUR (Q14). RG5 : une seule présence. RG13 : attribution retentée.
+     */
+    @Transactional
+    public PresenceResponse ajouterPresenceManuelle(Long sessionId, Long etudiantId) {
+        SessionCours session = sessionCoursRepository.findById(sessionId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "SESSION_INCONNUE", "Cette session n'existe pas."));
+
+        Etudiant etudiant = etudiantRepository.findById(etudiantId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "ETUDIANT_INCONNU", "Cet étudiant n'existe pas."));
+
+        if (!session.getPromotion().getId().equals(etudiant.getPromotion().getId())) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "ETUDIANT_HORS_PROMOTION",
+                    "Cet étudiant n'appartient pas à la promotion de la session.");
+        }
+
+        if (session.getClotureAt() != null) {
+            throw new BusinessException(HttpStatus.CONFLICT, "SESSION_CLOTUREE", "Cette session est clôturée.");
+        }
+
+        if (presenceRepository.existsBySessionIdAndEtudiantId(session.getId(), etudiant.getId())) {
+            throw dejaPresent();
+        }
+
+        Presence presence;
+        try {
+            presence = presenceRepository.save(new Presence(session, etudiant, SourcePresence.FORMATEUR, clock.instant()));
+        } catch (DataIntegrityViolationException race) {
+            throw dejaPresent();
+        }
+        attributionService.retenterAttribution(session);
+        return PresenceResponse.from(presence);
     }
 
     private BusinessException codeInconnu() {

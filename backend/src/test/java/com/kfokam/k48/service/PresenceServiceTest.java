@@ -2,9 +2,11 @@ package com.kfokam.k48.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,7 +14,10 @@ import static org.mockito.Mockito.when;
 import com.kfokam.k48.domain.Etudiant;
 import com.kfokam.k48.domain.Promotion;
 import com.kfokam.k48.domain.SessionCours;
+import com.kfokam.k48.domain.Presence;
+import com.kfokam.k48.domain.SourcePresence;
 import com.kfokam.k48.dto.MarquerPresenceRequete;
+import com.kfokam.k48.dto.PresenceResponse;
 import com.kfokam.k48.error.BusinessException;
 import com.kfokam.k48.repository.EtudiantRepository;
 import com.kfokam.k48.repository.PresenceRepository;
@@ -49,6 +54,9 @@ class PresenceServiceTest {
     @Mock
     private TentativeCodeService tentativeCodeService;
 
+    @Mock
+    private AttributionService attributionService;
+
     private PresenceService presenceService;
     private Etudiant etudiant;
     private Promotion promotion;
@@ -56,7 +64,7 @@ class PresenceServiceTest {
     @BeforeEach
     void demarrer() throws Exception {
         presenceService = new PresenceService(etudiantRepository, sessionCoursRepository, presenceRepository,
-                tentativeCodeService, Clock.fixed(MAINTENANT, ZoneOffset.UTC));
+                tentativeCodeService, attributionService, Clock.fixed(MAINTENANT, ZoneOffset.UTC));
         promotion = new Promotion("Promo");
         forcerId(promotion, 1L);
         var constructeur = Etudiant.class.getDeclaredConstructor();
@@ -66,7 +74,7 @@ class PresenceServiceTest {
         Field champPromotion = Etudiant.class.getDeclaredField("promotion");
         champPromotion.setAccessible(true);
         champPromotion.set(etudiant, promotion);
-        when(etudiantRepository.findById(7L)).thenReturn(Optional.of(etudiant));
+        lenient().when(etudiantRepository.findById(7L)).thenReturn(Optional.of(etudiant));
     }
 
     private void forcerId(Object entite, long id) throws Exception {
@@ -112,5 +120,64 @@ class PresenceServiceTest {
 
         assertThat(exception.status()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
         verify(sessionCoursRepository, never()).findFirstByCodeAndPromotionIdOrderByOuvertureAtDesc(anyString(), anyLong());
+    }
+
+    private SessionCours sessionOuverte() throws Exception {
+        SessionCours session = new SessionCours("Cours", promotion, "AAAAAA", MAINTENANT.minusSeconds(3600), MAINTENANT.minusSeconds(2700));
+        forcerId(session, 10L);
+        return session;
+    }
+
+    @Test
+    void le_formateur_ajoute_une_presence_meme_code_expire_avec_source_formateur() throws Exception {
+        SessionCours session = sessionOuverte();
+        when(sessionCoursRepository.findById(10L)).thenReturn(Optional.of(session));
+        when(presenceRepository.save(any(Presence.class))).thenAnswer(invocation -> {
+            Presence presence = invocation.getArgument(0);
+            forcerId(presence, 50L);
+            return presence;
+        });
+
+        PresenceResponse reponse = presenceService.ajouterPresenceManuelle(10L, 7L);
+
+        assertThat(reponse.source()).isEqualTo(SourcePresence.FORMATEUR.name());
+        verify(attributionService).retenterAttribution(session);
+    }
+
+    @Test
+    void le_formateur_ne_peut_plus_ajouter_de_presence_apres_la_cloture() throws Exception {
+        SessionCours session = sessionOuverte();
+        Field champCloture = SessionCours.class.getDeclaredField("clotureAt");
+        champCloture.setAccessible(true);
+        champCloture.set(session, MAINTENANT.minusSeconds(60));
+        when(sessionCoursRepository.findById(10L)).thenReturn(Optional.of(session));
+
+        BusinessException exception = catchThrowableOfType(
+                () -> presenceService.ajouterPresenceManuelle(10L, 7L), BusinessException.class);
+
+        assertThat(exception.code()).isEqualTo("SESSION_CLOTUREE");
+        assertThat(exception.status()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void le_formateur_recoit_409_si_l_etudiant_est_deja_present() throws Exception {
+        when(sessionCoursRepository.findById(10L)).thenReturn(Optional.of(sessionOuverte()));
+        when(presenceRepository.existsBySessionIdAndEtudiantId(10L, 7L)).thenReturn(true);
+
+        BusinessException exception = catchThrowableOfType(
+                () -> presenceService.ajouterPresenceManuelle(10L, 7L), BusinessException.class);
+
+        assertThat(exception.code()).isEqualTo("DEJA_PRESENT");
+    }
+
+    @Test
+    void le_formateur_recoit_404_pour_une_session_inconnue() {
+        when(sessionCoursRepository.findById(99L)).thenReturn(Optional.empty());
+
+        BusinessException exception = catchThrowableOfType(
+                () -> presenceService.ajouterPresenceManuelle(99L, 7L), BusinessException.class);
+
+        assertThat(exception.code()).isEqualTo("SESSION_INCONNUE");
+        assertThat(exception.status()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }
