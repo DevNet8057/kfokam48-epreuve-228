@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Card, Select, Space, Spin, Table, Tag } from "antd";
+import { Alert, Button, Card, Popconfirm, Select, Space, Spin, Table, Tag } from "antd";
 import { api, Etudiant, Promotion, SessionResume } from "../../api/client";
 import { ErreurApi } from "../../api/erreurApi";
 
 /**
  * Sessions d'une promotion côté formateur. EF5 : ajouter une présence à la main (RG8), marquée
- * « ajoutée par le formateur » dans le tableau (Q14).
+ * « ajoutée par le formateur » dans le tableau (Q14). EF13 : clôturer une session (irréversible, RG20).
  */
 export function GestionSessions() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
@@ -56,6 +56,18 @@ export function GestionSessions() {
     }
   }
 
+  async function cloturer(session: SessionResume) {
+    setErreur(null);
+    setSucces(null);
+    try {
+      await api.cloturerSession(session.id);
+      setSucces(`La session « ${session.titre} » est clôturée.`);
+      if (promotionId !== null) await chargerSessions(promotionId);
+    } catch (cause) {
+      setErreur(cause instanceof ErreurApi ? cause.message : "Impossible de clôturer la session.");
+    }
+  }
+
   const colonnes = [
     { title: "Session", dataIndex: "titre", key: "titre" },
     { title: "Code", dataIndex: "code", key: "code" },
@@ -70,6 +82,24 @@ export function GestionSessions() {
       key: "etat",
       render: (_: unknown, session: SessionResume) =>
         session.clotureAt ? <Tag>Clôturée</Tag> : <Tag color="green">Ouverte</Tag>,
+    },
+    {
+      title: "Action",
+      key: "action",
+      render: (_: unknown, session: SessionResume) =>
+        session.clotureAt ? null : (
+          <Popconfirm
+            title="Clôturer cette session ?"
+            description="Irréversible : plus de présence, de dépôt ni de relecture."
+            okText="Clôturer"
+            cancelText="Annuler"
+            onConfirm={() => cloturer(session)}
+          >
+            <Button danger size="small">
+              Clôturer
+            </Button>
+          </Popconfirm>
+        ),
     },
   ];
 
