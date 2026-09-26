@@ -96,4 +96,27 @@ class SessionServiceTest {
         assertThat(exception.code()).isEqualTo("PROMOTION_INCONNUE");
         assertThat(exception.status()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
+
+    @Test
+    void cloture_la_session_de_facon_irreversible() {
+        SessionCours session = new SessionCours("Cours", new Promotion("Promo"), "AAAAAA", MAINTENANT, MAINTENANT.plusSeconds(900));
+        when(sessionCoursRepository.findById(10L)).thenReturn(Optional.of(session));
+
+        sessionService.cloturer(10L);
+
+        assertThat(session.getClotureAt()).isEqualTo(MAINTENANT);
+        BusinessException exception = catchThrowableOfType(() -> sessionService.cloturer(10L), BusinessException.class);
+        assertThat(exception.code()).isEqualTo("SESSION_CLOTUREE");
+        assertThat(exception.status()).isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void refuse_de_cloturer_une_session_inconnue_avec_404() {
+        when(sessionCoursRepository.findById(99L)).thenReturn(Optional.empty());
+
+        BusinessException exception = catchThrowableOfType(() -> sessionService.cloturer(99L), BusinessException.class);
+
+        assertThat(exception.code()).isEqualTo("SESSION_INCONNUE");
+        assertThat(exception.status()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
 }

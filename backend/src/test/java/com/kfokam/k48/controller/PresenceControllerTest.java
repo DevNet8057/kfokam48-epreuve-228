@@ -91,4 +91,32 @@ class PresenceControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code", is("CODE_INCONNU")));
     }
+
+    @Test
+    void refuse_le_code_d_une_session_cloturee_avant_15_minutes_avec_410() throws Exception {
+        Instant maintenant = Instant.now();
+        SessionCours session = creerSession("DDDDDD", maintenant.minus(1, ChronoUnit.MINUTES), maintenant.plus(14, ChronoUnit.MINUTES));
+        session.cloturer(maintenant);
+        sessionCoursRepository.save(session);
+
+        mockMvc.perform(post("/api/presences")
+                        .contentType("application/json")
+                        .content("{\"code\":\"DDDDDD\",\"etudiantId\":2}"))
+                .andExpect(status().isGone())
+                .andExpect(jsonPath("$.code", is("CODE_EXPIRE")));
+    }
+
+    @Test
+    void cloture_une_session_puis_refuse_une_seconde_cloture_avec_409() throws Exception {
+        Instant maintenant = Instant.now();
+        SessionCours session = creerSession("EEEEEE", maintenant, maintenant.plus(15, ChronoUnit.MINUTES));
+
+        mockMvc.perform(post("/api/sessions/" + session.getId() + "/cloture"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.clotureAt").exists());
+
+        mockMvc.perform(post("/api/sessions/" + session.getId() + "/cloture"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("SESSION_CLOTUREE")));
+    }
 }

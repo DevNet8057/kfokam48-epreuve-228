@@ -66,6 +66,22 @@ public class SessionService {
                 .toList();
     }
 
+    /**
+     * EF13 : clôture irréversible (RG20). Elle rend le code inutilisable, même avant 15 min (RG21),
+     * et bloque dépôts, remplacements, présences manuelles et relectures (contrôles déjà en place
+     * dans les services concernés).
+     */
+    @Transactional
+    public SessionResumeResponse cloturer(Long sessionId) {
+        SessionCours session = sessionCoursRepository.findById(sessionId)
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "SESSION_INCONNUE", "Cette session n'existe pas."));
+        if (session.getClotureAt() != null) {
+            throw new BusinessException(HttpStatus.CONFLICT, "SESSION_CLOTUREE", "Cette session est déjà clôturée.");
+        }
+        session.cloturer(clock.instant());
+        return SessionResumeResponse.from(session);
+    }
+
     private String genererCodeUnique() {
         for (int tentative = 0; tentative < TENTATIVES_MAX_GENERATION_CODE; tentative++) {
             String code = genererCode();
